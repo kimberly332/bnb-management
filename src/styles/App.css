@@ -510,3 +510,191 @@ body {
     max-width: 1200px;
   }
 }
+
+/* 增強的房客列表樣式 */
+
+/* 房客項目基本樣式 */
+.guest-item {
+  background: white;
+  border-radius: 12px;
+  padding: 1rem;
+  margin-bottom: 0.75rem;
+  border: 1px solid #e2e8f0;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+/* 已完成項目的特殊樣式 */
+.guest-item.completed {
+  background: #f8fafc;
+  opacity: 0.7;
+}
+
+/* 房客姓名樣式 */
+.guest-name {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 0.25rem;
+}
+
+/* 日期資訊樣式 */
+.guest-date {
+  font-size: 0.9rem;
+  color: #64748b;
+  margin-bottom: 0.5rem;
+}
+
+/* 付款狀態樣式 */
+.payment-status {
+  padding: 0.25rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+}
+
+.status-paid {
+  background: #dcfce7;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+}
+
+.status-unpaid {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+
+/* 住宿狀態指示器 */
+.stay-status {
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  margin-bottom: 0.25rem;
+}
+
+.stay-status.current {
+  background: #dcfce7;
+  color: #059669;
+}
+
+.stay-status.upcoming {
+  background: #dbeafe;
+  color: #0369a1;
+}
+
+.stay-status.completed {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+/* 分類標題樣式 */
+.category-title {
+  padding: 0.5rem 0;
+  margin: 1rem 0 0.5rem 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.category-title.current {
+  color: #059669;
+  border-top: 1px solid #dcfce7;
+}
+
+.category-title.upcoming {
+  color: #0369a1;
+  border-top: 1px solid #dbeafe;
+}
+
+.category-title.completed {
+  color: #64748b;
+  border-top: 1px solid #e2e8f0;
+}
+
+.category-title:first-child {
+  border-top: none;
+  margin-top: 0;
+}
+
+/* 統計資訊卡片 */
+.stats-card {
+  background: #f8fafc;
+  padding: 0.75rem;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+.stats-summary {
+  color: #64748b;
+  font-size: 0.9rem;
+  margin-bottom: 0.25rem;
+}
+
+.stats-breakdown {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  font-size: 0.85rem;
+  flex-wrap: wrap;
+}
+
+.stats-item {
+  font-weight: 500;
+}
+
+.stats-item.current {
+  color: #059669;
+}
+
+.stats-item.upcoming {
+  color: #0369a1;
+}
+
+.stats-item.completed {
+  color: #6b7280;
+}
+
+/* 響應式設計 */
+@media (max-width: 768px) {
+  .guest-item {
+    padding: 0.875rem;
+    margin-bottom: 0.5rem;
+  }
+  
+  .guest-name {
+    font-size: 1rem;
+  }
+  
+  .guest-date {
+    font-size: 0.85rem;
+  }
+  
+  .stats-breakdown {
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+}
+
+/* 空狀態樣式 */
+.empty-state {
+  text-align: center;
+  color: #6b7280;
+  background: white;
+  border-radius: 12px;
+  padding: 2rem;
+  border: 1px solid #e2e8f0;
+}
+
+.empty-state small {
+  color: #9ca3af;
+  display: block;
+  margin-top: 0.5rem;
+}

@@ -346,6 +346,65 @@ function LandlordDashboard({ guests, setCurrentView, landlordView, setLandlordVi
 
 // 房客列表組件
 function GuestList({ guests, onGuestClick }) {
+  // 獲取當前日期
+  const today = new Date();
+  const todayString = today.toISOString().split('T')[0];
+
+  // 分類和排序房客
+  const categorizeAndSortGuests = (guests) => {
+    const currentGuests = [];
+    const upcomingGuests = [];
+    const completedGuests = [];
+
+    guests.forEach(guest => {
+      const checkInDate = new Date(guest.checkInDate);
+      const checkOutDate = new Date(guest.checkOutDate);
+      const today = new Date(todayString);
+
+      if (checkOutDate < today) {
+        // 已完成 - 已過離開日期
+        completedGuests.push({
+          ...guest,
+          status: 'completed',
+          statusText: '已完成'
+        });
+      } else if (checkInDate <= today && checkOutDate >= today) {
+        // 目前入住中
+        currentGuests.push({
+          ...guest,
+          status: 'current',
+          statusText: '入住中'
+        });
+      } else {
+        // 即將入住
+        upcomingGuests.push({
+          ...guest,
+          status: 'upcoming',
+          statusText: '即將入住'
+        });
+      }
+    });
+
+    // 排序邏輯
+    // 1. 目前入住中 - 按入住日期排序（最近入住的在前）
+    currentGuests.sort((a, b) => new Date(b.checkInDate) - new Date(a.checkInDate));
+    
+    // 2. 即將入住 - 按入住日期排序（最近的在前）
+    upcomingGuests.sort((a, b) => new Date(a.checkInDate) - new Date(b.checkInDate));
+    
+    // 3. 已完成 - 按離開日期排序（最近完成的在前）
+    completedGuests.sort((a, b) => new Date(b.checkOutDate) - new Date(a.checkOutDate));
+
+    return [...currentGuests, ...upcomingGuests, ...completedGuests];
+  };
+
+  const sortedGuests = categorizeAndSortGuests(guests);
+
+  // 計算各類別數量
+  const currentCount = sortedGuests.filter(g => g.status === 'current').length;
+  const upcomingCount = sortedGuests.filter(g => g.status === 'upcoming').length;
+  const completedCount = sortedGuests.filter(g => g.status === 'completed').length;
+
   return (
     <div>
       {guests.length === 0 ? (
@@ -358,24 +417,113 @@ function GuestList({ guests, onGuestClick }) {
         </div>
       ) : (
         <>
-          <div style={{textAlign: 'center', marginBottom: '1rem', color: '#6b7280', fontSize: '0.9rem'}}>
-            共 {guests.length} 位房客 | 雲端即時同步
-          </div>
-          {guests.map(guest => (
-            <div 
-              key={guest.id} 
-              className="guest-item"
-              onClick={() => onGuestClick(guest)}
-            >
-              <div className="guest-name">{guest.name}</div>
-              <div className="guest-date">
-                入住: {guest.checkInDate} → 離開: {guest.checkOutDate}
-              </div>
-              <span className={`payment-status ${guest.paymentStatus === '已付款' ? 'status-paid' : 'status-unpaid'}`}>
-                {guest.paymentStatus}
-              </span>
+          {/* 統計資訊 */}
+          <div style={{
+            textAlign: 'center', 
+            marginBottom: '1rem', 
+            background: '#f8fafc',
+            padding: '0.75rem',
+            borderRadius: '8px',
+            border: '1px solid #e2e8f0'
+          }}>
+            <div style={{color: '#64748b', fontSize: '0.9rem', marginBottom: '0.25rem'}}>
+              共 {guests.length} 位房客 | 雲端即時同步
             </div>
-          ))}
+            <div style={{
+              display: 'flex', 
+              justifyContent: 'center', 
+              gap: '1rem',
+              fontSize: '0.85rem'
+            }}>
+              {currentCount > 0 && (
+                <span style={{color: '#059669'}}>
+                  入住中: {currentCount}
+                </span>
+              )}
+              {upcomingCount > 0 && (
+                <span style={{color: '#0369a1'}}>
+                  即將入住: {upcomingCount}
+                </span>
+              )}
+              {completedCount > 0 && (
+                <span style={{color: '#6b7280'}}>
+                  已完成: {completedCount}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* 房客列表 */}
+          {sortedGuests.map((guest, index) => {
+            const isFirstInCategory = 
+              index === 0 || 
+              sortedGuests[index - 1].status !== guest.status;
+
+            return (
+              <div key={guest.id}>
+                {/* 分類標題 */}
+                {isFirstInCategory && (
+                  <div style={{
+                    padding: '0.5rem 0',
+                    margin: '1rem 0 0.5rem 0',
+                    borderTop: index > 0 ? '1px solid #e2e8f0' : 'none',
+                    fontSize: '0.9rem',
+                    fontWeight: '600',
+                    color: guest.status === 'current' ? '#059669' : 
+                           guest.status === 'upcoming' ? '#0369a1' : '#6b7280'
+                  }}>
+                    {guest.status === 'current' && '🏠 目前入住中'}
+                    {guest.status === 'upcoming' && '📅 即將入住'}
+                    {guest.status === 'completed' && '✅ 已完成'}
+                  </div>
+                )}
+
+                {/* 房客卡片 */}
+                <div 
+                  className="guest-item"
+                  onClick={() => onGuestClick(guest)}
+                  style={{
+                    opacity: guest.status === 'completed' ? 0.7 : 1,
+                    background: guest.status === 'completed' ? '#f8fafc' : 'white'
+                  }}
+                >
+                  <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start'}}>
+                    <div style={{flex: 1}}>
+                      <div className="guest-name" style={{
+                        textDecoration: guest.status === 'completed' ? 'line-through' : 'none'
+                      }}>
+                        {guest.name}
+                      </div>
+                      <div className="guest-date">
+                        入住: {guest.checkInDate} → 離開: {guest.checkOutDate}
+                      </div>
+                    </div>
+                    
+                    <div style={{display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.25rem'}}>
+                      {/* 住宿狀態 */}
+                      <span style={{
+                        padding: '0.25rem 0.5rem',
+                        borderRadius: '4px',
+                        fontSize: '0.75rem',
+                        fontWeight: '500',
+                        background: guest.status === 'current' ? '#dcfce7' : 
+                                   guest.status === 'upcoming' ? '#dbeafe' : '#f1f5f9',
+                        color: guest.status === 'current' ? '#059669' : 
+                               guest.status === 'upcoming' ? '#0369a1' : '#64748b'
+                      }}>
+                        {guest.statusText}
+                      </span>
+                      
+                      {/* 付款狀態 */}
+                      <span className={`payment-status ${guest.paymentStatus === '已付款' ? 'status-paid' : 'status-unpaid'}`}>
+                        {guest.paymentStatus}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </>
       )}
     </div>
