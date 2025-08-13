@@ -65,20 +65,10 @@ body {
   border: 1px solid #2563eb;
 }
 
-.btn-primary:hover {
-  background: linear-gradient(135deg, #2563eb, #1e40af);
-  transform: translateY(-1px);
-}
-
 .btn-secondary {
   background: linear-gradient(135deg, #64748b, #475569);
   color: white;
   border: 1px solid #52525b;
-}
-
-.btn-secondary:hover {
-  background: linear-gradient(135deg, #475569, #334155);
-  transform: translateY(-1px);
 }
 
 .btn-success {
@@ -87,21 +77,10 @@ body {
   border: 1px solid #0d9488;
 }
 
-.btn-success:hover {
-  background: linear-gradient(135deg, #059669, #047857);
-  transform: translateY(-1px);
-}
-
 .btn-outline {
   background: white;
   border: 2px solid #3b82f6;
   color: #3b82f6;
-}
-
-.btn-outline:hover {
-  background: #3b82f6;
-  color: white;
-  transform: translateY(-1px);
 }
 
 .btn:disabled {
@@ -199,13 +178,6 @@ body {
   font-weight: 600;
 }
 
-.nav-back:hover {
-  background: #f1f5f9;
-  border-color: #cbd5e1;
-  color: #475569;
-  transform: translateY(-1px);
-}
-
 /* 房客列表樣式 - 無陰影版本 */
 .guest-list {
   display: grid;
@@ -229,15 +201,11 @@ body {
   background: white;
   border-radius: 12px;
   padding: 1.5rem;
+  margin-bottom: 1em;
   cursor: pointer;
   transition: all 0.3s ease;
   border: 1px solid #f1f5f9;
   height: fit-content;
-}
-
-.guest-item:hover {
-  transform: translateY(-2px);
-  border-color: #e2e8f0;
 }
 
 .guest-name {
@@ -305,11 +273,6 @@ body {
   transform: translateY(-1px);
 }
 
-.view-toggle button:not(.active):hover {
-  background: #f8fafc;
-  color: #475569;
-}
-
 /* 日曆樣式 - 完全簡化版本 */
 .calendar-container {
   border-radius: 0 0 16px 16px;
@@ -351,13 +314,8 @@ body {
   flex-direction: column;
 }
 
-.calendar-day:hover {
-  background: #fafbfc;
-}
-
 .calendar-day-number {
   font-weight: 600;
-  margin-bottom: 0.5rem;
   font-size: 0.875rem;
   color: #1e293b;
   align-self: flex-start;
@@ -406,11 +364,6 @@ body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  margin-bottom: 2px;
-}
-
-.guest-event:hover {
-  transform: translateY(-1px);
 }
 
 /* 柔和的旅客顏色 */
@@ -482,13 +435,6 @@ body {
   font-weight: 600;
 }
 
-.month-nav-btn:hover {
-  background: #f1f5f9;
-  border-color: #cbd5e1;
-  color: #475569;
-  transform: translateY(-1px);
-}
-
 .month-nav-btn:active {
   transform: translateY(0);
 }
@@ -496,10 +442,6 @@ body {
 /* 週末樣式 */
 .calendar-day.weekend {
   background: #fafbfc;
-}
-
-.calendar-day.weekend:hover {
-  background: #f5f7fa;
 }
 
 /* 響應式調整 */
@@ -536,7 +478,6 @@ body {
   }
   
   .nav-header {
-    padding: 1rem;
     margin-bottom: 1rem;
   }
 }

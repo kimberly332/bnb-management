@@ -1,63 +1,87 @@
 import React, { useState, useEffect } from 'react';
 import './styles/App.css';
+import { getGuests, addGuest as addGuestToFirestore, updateGuestPayment as updatePaymentInFirestore } from './services/guestService';
 
 function App() {
   const [currentView, setCurrentView] = useState('home');
   const [guests, setGuests] = useState([]);
   const [landlordView, setLandlordView] = useState('list');
   const [selectedGuest, setSelectedGuest] = useState(null);
+  const [loading, setLoading] = useState(false);
 
-  // 初始化示例數據
+  // Load guests from Firestore on app start
   useEffect(() => {
-    const initialGuests = [
-      {
-        id: '1',
-        name: '王小明',
-        phone: '0912345678',
-        checkInDate: '2025-08-15',
-        checkOutDate: '2025-08-18',
-        paymentStatus: '已付款',
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: '2', 
-        name: '李美華',
-        phone: '0987654321',
-        checkInDate: '2025-08-20',
-        checkOutDate: '2025-08-22',
-        paymentStatus: '未付款',
-        createdAt: new Date().toISOString()
-      }
-    ];
-    console.log('初始化房客數據:', initialGuests); // 調試用
-    setGuests(initialGuests);
+    loadGuests();
   }, []);
 
-  // 添加新房客
-  const addGuest = (newGuestData) => {
-    const newGuest = {
-      id: Date.now().toString(),
-      ...newGuestData,
-      paymentStatus: '未付款',
-      createdAt: new Date().toISOString()
-    };
-    
-    setGuests(prevGuests => {
-      const updatedGuests = [...prevGuests, newGuest];
-      return updatedGuests.sort((a, b) => new Date(a.checkInDate) - new Date(b.checkInDate));
-    });
-    
-    return newGuest;
+  const loadGuests = async () => {
+    setLoading(true);
+    try {
+      const guestsData = await getGuests();
+      setGuests(guestsData);
+      console.log('載入房客資料:', guestsData);
+    } catch (error) {
+      console.error('Error loading guests:', error);
+      alert('載入房客資料失敗，請檢查網路連線');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // 更新房客付款狀態
-  const updateGuestPayment = (guestId, newStatus) => {
-    setGuests(prevGuests => 
-      prevGuests.map(guest => 
-        guest.id === guestId ? { ...guest, paymentStatus: newStatus } : guest
-      )
-    );
+  // Add new guest to Firestore
+  const addGuest = async (newGuestData) => {
+    try {
+      const newGuest = await addGuestToFirestore(newGuestData);
+      setGuests(prevGuests => {
+        const updatedGuests = [...prevGuests, newGuest];
+        return updatedGuests.sort((a, b) => new Date(a.checkInDate) - new Date(b.checkInDate));
+      });
+      return newGuest;
+    } catch (error) {
+      console.error('Error adding guest:', error);
+      throw error;
+    }
   };
+
+  // Update guest payment status in Firestore
+  const updateGuestPayment = async (guestId, newStatus) => {
+    try {
+      await updatePaymentInFirestore(guestId, newStatus);
+      setGuests(prevGuests => 
+        prevGuests.map(guest => 
+          guest.id === guestId ? { ...guest, paymentStatus: newStatus } : guest
+        )
+      );
+    } catch (error) {
+      console.error('Error updating payment:', error);
+      throw error;
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="app">
+        <div className="container">
+          <div className="card">
+            <div style={{textAlign: 'center', padding: '2rem'}}>
+              <div style={{fontSize: '1.2rem', color: '#6b7280', marginBottom: '1rem'}}>
+                正在載入房客資料...
+              </div>
+              <div style={{
+                width: '40px',
+                height: '40px',
+                border: '4px solid #f3f4f6',
+                borderTop: '4px solid #3b82f6',
+                borderRadius: '50%',
+                animation: 'spin 1s linear infinite',
+                margin: '0 auto'
+              }}></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="app">
@@ -71,6 +95,7 @@ function App() {
           landlordView={landlordView}
           setLandlordView={setLandlordView}
           setSelectedGuest={setSelectedGuest}
+          refreshGuests={loadGuests}
         />
       )}
       {currentView === 'guestDetail' && (
@@ -92,6 +117,9 @@ function HomePage({ setCurrentView }) {
       <div className="card">
         <div className="card-header">
           <h1 className="card-title">民宿管理系統</h1>
+          <p style={{textAlign: 'center', color: '#6b7280', fontSize: '0.9rem', marginTop: '0.5rem'}}>
+            雲端數據存儲 | 即時同步
+          </p>
         </div>
         <button 
           className="btn btn-primary"
@@ -135,14 +163,14 @@ function GuestForm({ setCurrentView, addGuest }) {
 
     setIsSubmitting(true);
     try {
-      // 添加新房客
-      addGuest(formData);
+      // 添加新房客到 Firestore
+      await addGuest(formData);
       
-      alert('登記成功！');
+      alert('登記成功！資料已保存至雲端');
       setCurrentView('home');
     } catch (error) {
       console.error('Error adding guest:', error);
-      alert('登記失敗，請重試');
+      alert('登記失敗，請檢查網路連線並重試');
     }
     setIsSubmitting(false);
   };
@@ -167,6 +195,7 @@ function GuestForm({ setCurrentView, addGuest }) {
               value={formData.name}
               onChange={(e) => setFormData({...formData, name: e.target.value})}
               placeholder="請輸入姓名"
+              disabled={isSubmitting}
             />
           </div>
           
@@ -178,6 +207,7 @@ function GuestForm({ setCurrentView, addGuest }) {
               value={formData.phone}
               onChange={(e) => setFormData({...formData, phone: e.target.value})}
               placeholder="請輸入電話號碼"
+              disabled={isSubmitting}
             />
           </div>
           
@@ -189,6 +219,7 @@ function GuestForm({ setCurrentView, addGuest }) {
               value={formData.checkInDate}
               onChange={(e) => setFormData({...formData, checkInDate: e.target.value})}
               min={new Date().toISOString().split('T')[0]}
+              disabled={isSubmitting}
             />
           </div>
           
@@ -200,6 +231,7 @@ function GuestForm({ setCurrentView, addGuest }) {
               value={formData.checkOutDate}
               onChange={(e) => setFormData({...formData, checkOutDate: e.target.value})}
               min={formData.checkInDate || new Date().toISOString().split('T')[0]}
+              disabled={isSubmitting}
             />
           </div>
           
@@ -208,7 +240,7 @@ function GuestForm({ setCurrentView, addGuest }) {
             className="btn btn-success"
             disabled={isSubmitting}
           >
-            {isSubmitting ? '提交中...' : '確認登記'}
+            {isSubmitting ? '正在保存至雲端...' : '確認登記'}
           </button>
         </form>
       </div>
@@ -264,7 +296,7 @@ function LandlordLogin({ setCurrentView }) {
 }
 
 // 房東管理介面
-function LandlordDashboard({ guests, setCurrentView, landlordView, setLandlordView, setSelectedGuest }) {
+function LandlordDashboard({ guests, setCurrentView, landlordView, setLandlordView, setSelectedGuest, refreshGuests }) {
   const handleGuestClick = (guest) => {
     setSelectedGuest(guest);
     setCurrentView('guestDetail');
@@ -277,7 +309,14 @@ function LandlordDashboard({ guests, setCurrentView, landlordView, setLandlordVi
           ←
         </button>
         <h1 className="nav-title">房東管理</h1>
-        <div></div>
+        <button 
+          className="nav-back" 
+          onClick={refreshGuests}
+          style={{backgroundColor: '#10b981', color: 'white'}}
+          title="重新載入資料"
+        >
+          ↻
+        </button>
       </div>
       
       <div className="view-toggle">
@@ -310,24 +349,33 @@ function GuestList({ guests, onGuestClick }) {
     <div>
       {guests.length === 0 ? (
         <div className="card">
-          <p style={{textAlign: 'center', color: '#6b7280'}}>目前沒有房客資料</p>
+          <p style={{textAlign: 'center', color: '#6b7280'}}>
+            目前沒有房客資料
+            <br />
+            <small style={{color: '#9ca3af'}}>資料將自動從雲端同步</small>
+          </p>
         </div>
       ) : (
-        guests.map(guest => (
-          <div 
-            key={guest.id} 
-            className="guest-item"
-            onClick={() => onGuestClick(guest)}
-          >
-            <div className="guest-name">{guest.name}</div>
-            <div className="guest-date">
-              入住: {guest.checkInDate} → 離開: {guest.checkOutDate}
-            </div>
-            <span className={`payment-status ${guest.paymentStatus === '已付款' ? 'status-paid' : 'status-unpaid'}`}>
-              {guest.paymentStatus}
-            </span>
+        <>
+          <div style={{textAlign: 'center', marginBottom: '1rem', color: '#6b7280', fontSize: '0.9rem'}}>
+            共 {guests.length} 位房客 | 雲端即時同步
           </div>
-        ))
+          {guests.map(guest => (
+            <div 
+              key={guest.id} 
+              className="guest-item"
+              onClick={() => onGuestClick(guest)}
+            >
+              <div className="guest-name">{guest.name}</div>
+              <div className="guest-date">
+                入住: {guest.checkInDate} → 離開: {guest.checkOutDate}
+              </div>
+              <span className={`payment-status ${guest.paymentStatus === '已付款' ? 'status-paid' : 'status-unpaid'}`}>
+                {guest.paymentStatus}
+              </span>
+            </div>
+          ))}
+        </>
       )}
     </div>
   );
@@ -374,14 +422,42 @@ function CalendarView({ guests, onGuestClick }) {
     return `guest-color-${guestIndex % 8}`;
   };
 
-  // 計算住宿事件
+  // 計算住宿事件 - 修復版本
   const calculateGuestEvents = () => {
     const events = [];
     
-    // 為每個房客分配相同的層級
+    // 智慧分配層級 - 檢測時間重疊
     const guestLevels = {};
-    guests.forEach((guest, index) => {
-      guestLevels[guest.id] = 0; // 所有房客都在同一層（0px）
+    const sortedGuests = [...guests].sort((a, b) => new Date(a.checkInDate) - new Date(b.checkInDate));
+    
+    sortedGuests.forEach((guest, index) => {
+      const checkIn = new Date(guest.checkInDate + 'T00:00:00');
+      const checkOut = new Date(guest.checkOutDate + 'T00:00:00');
+      
+      // 找到合適的層級
+      let level = 0;
+      let levelFound = false;
+      
+      while (!levelFound) {
+        // 檢查這個層級是否與其他房客衝突
+        const hasConflict = sortedGuests.some(otherGuest => {
+          if (otherGuest.id === guest.id) return false;
+          if (guestLevels[otherGuest.id] !== level * 28) return false;
+          
+          const otherCheckIn = new Date(otherGuest.checkInDate + 'T00:00:00');
+          const otherCheckOut = new Date(otherGuest.checkOutDate + 'T00:00:00');
+          
+          // 檢查時間是否重疊
+          return (checkIn <= otherCheckOut && checkOut >= otherCheckIn);
+        });
+        
+        if (!hasConflict) {
+          guestLevels[guest.id] = level * 28; // 每層28px間距
+          levelFound = true;
+        } else {
+          level++;
+        }
+      }
     });
     
     guests.forEach(guest => {
@@ -431,27 +507,20 @@ function CalendarView({ guests, onGuestClick }) {
         }
         continuousGroups.push(currentGroup);
         
-        // 為每個連續組創建事件，使用固定的層級
+        // 為每個連續組創建事件，使用智慧分配的層級
         continuousGroups.forEach((group, groupIndex) => {
           events.push({
             guest,
             weekIndex: parseInt(weekIndex),
             startDay: group[0],
             endDay: group[group.length - 1],
-            top: guestLevels[guest.id] // 使用固定的層級
+            top: guestLevels[guest.id] // 使用智慧分配的層級
           });
         });
       });
     });
     
     return events;
-  };
-
-  // 計算事件的垂直位置
-  const getEventTop = (guestId, weekIndex) => {
-    // 為每個房客分配固定的垂直層級
-    const guestIndex = guests.findIndex(g => g.id === guestId);
-    return 0 + (guestIndex % 4) * 28; // 每個事件高度24px + 4px間距
   };
 
   const guestEvents = calculateGuestEvents();
@@ -577,16 +646,16 @@ function GuestDetail({ guest, setCurrentView, landlordView, updateGuestPayment }
     const newStatus = guest.paymentStatus === '已付款' ? '未付款' : '已付款';
     
     try {
-      // 更新付款狀態
-      updateGuestPayment(guest.id, newStatus);
+      // 更新付款狀態到 Firestore
+      await updateGuestPayment(guest.id, newStatus);
       
       // 更新本地 guest 對象
       guest.paymentStatus = newStatus;
       
-      alert('付款狀態已更新');
+      alert(`付款狀態已更新為：${newStatus}`);
     } catch (error) {
       console.error('Error updating payment status:', error);
-      alert('更新失敗，請重試');
+      alert('更新失敗，請檢查網路連線並重試');
     }
     setIsUpdating(false);
   };
@@ -602,6 +671,10 @@ function GuestDetail({ guest, setCurrentView, landlordView, updateGuestPayment }
       </div>
       
       <div className="card">
+        <div style={{textAlign: 'center', marginBottom: '1.5rem', color: '#6b7280', fontSize: '0.9rem'}}>
+          雲端同步資料 | ID: {guest.id.substring(0, 8)}...
+        </div>
+        
         <div className="form-group">
           <label className="form-label">姓名</label>
           <div style={{padding: '0.875rem', background: '#f9fafb', borderRadius: '8px'}}>
@@ -644,7 +717,7 @@ function GuestDetail({ guest, setCurrentView, landlordView, updateGuestPayment }
           onClick={togglePaymentStatus}
           disabled={isUpdating}
         >
-          {isUpdating ? '更新中...' : 
+          {isUpdating ? '正在更新至雲端...' : 
            guest.paymentStatus === '已付款' ? '標記為未付款' : '標記為已付款'}
         </button>
       </div>

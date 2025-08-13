@@ -1,7 +1,9 @@
-// src/firebase/config.js
-import { initializeApp } from 'firebase/app';
-import { getFirestore } from 'firebase/firestore';
+// Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+import { getFirestore } from "firebase/firestore";
+import { getAnalytics } from "firebase/analytics";
 
+// Your web app's Firebase configuration
 const firebaseConfig = {
   apiKey: "AIzaSyDcC4PJJm91gnOV0joUv_qYEqPGApa_K58",
   authDomain: "bnb-manage.firebaseapp.com",
@@ -12,10 +14,13 @@ const firebaseConfig = {
   measurementId: "G-2WT7K8ZJ8C"
 };
 
-// 初始化Firebase
+// Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
-// 初始化Firestore
+// Initialize Firestore Database
 export const db = getFirestore(app);
+
+// Initialize Analytics (optional)
+export const analytics = getAnalytics(app);
 
 export default app;
