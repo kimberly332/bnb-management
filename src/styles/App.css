@@ -62,19 +62,16 @@ body {
 .btn-primary {
   background: linear-gradient(135deg, #3b82f6, #1d4ed8);
   color: white;
-  border: 1px solid #2563eb;
 }
 
 .btn-secondary {
   background: linear-gradient(135deg, #64748b, #475569);
   color: white;
-  border: 1px solid #52525b;
 }
 
 .btn-success {
   background: linear-gradient(135deg, #10b981, #059669);
   color: white;
-  border: 1px solid #0d9488;
 }
 
 .btn-outline {

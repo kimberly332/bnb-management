@@ -116,7 +116,7 @@ function HomePage({ setCurrentView }) {
     <div className="container">
       <div className="card">
         <div className="card-header">
-          <h1 className="card-title">民宿管理系統</h1>
+          <h1 className="card-title">RENTAL管理系統</h1>
           <p style={{textAlign: 'center', color: '#6b7280', fontSize: '0.9rem', marginTop: '0.5rem'}}>
             雲端數據存儲 | 即時同步
           </p>
@@ -125,7 +125,7 @@ function HomePage({ setCurrentView }) {
           className="btn btn-primary"
           onClick={() => setCurrentView('guest')}
         >
-          旅客登記
+          入住登記
         </button>
         <button 
           className="btn btn-secondary"
@@ -138,7 +138,7 @@ function HomePage({ setCurrentView }) {
   );
 }
 
-// 旅客表單組件
+// 旅客表單組件 - 電話非必填版本
 function GuestForm({ setCurrentView, addGuest }) {
   const [formData, setFormData] = useState({
     name: '',
@@ -150,8 +150,9 @@ function GuestForm({ setCurrentView, addGuest }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.name || !formData.phone || !formData.checkInDate || !formData.checkOutDate) {
-      alert('請填寫所有必填欄位');
+    // 修改驗證邏輯：電話不再是必填欄位
+    if (!formData.name || !formData.checkInDate || !formData.checkOutDate) {
+      alert('請填寫所有必填欄位（姓名、入住日期、離開日期）');
       return;
     }
 
@@ -200,13 +201,13 @@ function GuestForm({ setCurrentView, addGuest }) {
           </div>
           
           <div className="form-group">
-            <label className="form-label">電話 *</label>
+            <label className="form-label">電話</label>
             <input
               type="tel"
               className="form-input"
               value={formData.phone}
               onChange={(e) => setFormData({...formData, phone: e.target.value})}
-              placeholder="請輸入電話號碼"
+              placeholder="請輸入電話號碼（選填）"
               disabled={isSubmitting}
             />
           </div>
@@ -251,7 +252,7 @@ function GuestForm({ setCurrentView, addGuest }) {
 // 房東登入組件
 function LandlordLogin({ setCurrentView }) {
   const [password, setPassword] = useState('');
-  const LANDLORD_PASSWORD = '1010'; // 房東密碼
+  const LANDLORD_PASSWORD = '0205'; // 房東密碼
 
   const handleLogin = (e) => {
     e.preventDefault();
