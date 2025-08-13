@@ -152,13 +152,13 @@ function GuestForm({ setCurrentView, addGuest }) {
     e.preventDefault();
     // 修改驗證邏輯：電話不再是必填欄位
     if (!formData.name || !formData.checkInDate || !formData.checkOutDate) {
-      alert('請填寫所有必填欄位（姓名、入住日期、離開日期）');
+      alert('請填寫所有必填欄位（姓名、入住日期、退房日期）');
       return;
     }
 
     // 檢查日期邏輯
     if (new Date(formData.checkOutDate) <= new Date(formData.checkInDate)) {
-      alert('離開日期必須晚於入住日期');
+      alert('退房日期必須晚於入住日期');
       return;
     }
 
@@ -225,7 +225,7 @@ function GuestForm({ setCurrentView, addGuest }) {
           </div>
           
           <div className="form-group">
-            <label className="form-label">離開日期 *</label>
+            <label className="form-label">退房日期 *</label>
             <input
               type="date"
               className="form-input"
@@ -362,7 +362,7 @@ function GuestList({ guests, onGuestClick }) {
       const today = new Date(todayString);
 
       if (checkOutDate < today) {
-        // 已完成 - 已過離開日期
+        // 已完成 - 已過退房日期
         completedGuests.push({
           ...guest,
           status: 'completed',
@@ -392,7 +392,7 @@ function GuestList({ guests, onGuestClick }) {
     // 2. 即將入住 - 按入住日期排序（最近的在前）
     upcomingGuests.sort((a, b) => new Date(a.checkInDate) - new Date(b.checkInDate));
     
-    // 3. 已完成 - 按離開日期排序（最近完成的在前）
+    // 3. 已完成 - 按退房日期排序（最近完成的在前）
     completedGuests.sort((a, b) => new Date(b.checkOutDate) - new Date(a.checkOutDate));
 
     return [...currentGuests, ...upcomingGuests, ...completedGuests];
@@ -495,7 +495,7 @@ function GuestList({ guests, onGuestClick }) {
                         {guest.name}
                       </div>
                       <div className="guest-date">
-                        入住: {guest.checkInDate} → 離開: {guest.checkOutDate}
+                        入住: {guest.checkInDate} → 退房: {guest.checkOutDate}
                       </div>
                     </div>
                     
@@ -530,7 +530,7 @@ function GuestList({ guests, onGuestClick }) {
   );
 }
 
-// 日曆檢視組件
+// 優化的日曆檢視組件
 function CalendarView({ guests, onGuestClick }) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const currentMonth = currentDate.getMonth();
@@ -571,9 +571,9 @@ function CalendarView({ guests, onGuestClick }) {
     return `guest-color-${guestIndex % 8}`;
   };
 
-  // 計算住宿事件 - 修復版本
+  // 優化的房客事件計算 - 姓名只在住宿開始時顯示一次
   const calculateGuestEvents = () => {
-    const events = [];
+    const allEvents = [];
     
     // 智慧分配層級 - 檢測時間重疊
     const guestLevels = {};
@@ -614,10 +614,9 @@ function CalendarView({ guests, onGuestClick }) {
       const checkIn = new Date(guest.checkInDate + 'T00:00:00');
       const checkOut = new Date(guest.checkOutDate + 'T00:00:00');
       
-      console.log(`處理房客: ${guest.name}, 層級: ${guestLevels[guest.id]}px`);
-      
       // 為每一週單獨計算事件
       const weekGroups = {};
+      let hasShownName = false; // 追踪是否已經顯示過姓名
       
       days.forEach((day, dayIndex) => {
         const weekIndex = Math.floor(dayIndex / 7);
@@ -625,51 +624,60 @@ function CalendarView({ guests, onGuestClick }) {
         
         // 檢查這一天是否在住宿期間
         const dayStart = new Date(day.getFullYear(), day.getMonth(), day.getDate());
-        const checkInDate = new Date(checkIn.getFullYear(), checkIn.getMonth(), checkIn.getDate());
-        const checkOutDate = new Date(checkOut.getFullYear(), checkOut.getMonth(), checkOut.getDate());
-        
-        const isInStay = dayStart >= checkInDate && dayStart <= checkOutDate;
+        const isInStay = dayStart >= checkIn && dayStart <= checkOut;
         
         if (isInStay) {
           if (!weekGroups[weekIndex]) {
-            weekGroups[weekIndex] = [];
+            weekGroups[weekIndex] = {
+              startDay: dayOfWeek,
+              endDay: dayOfWeek,
+              guest: guest,
+              weekIndex: weekIndex,
+              top: guestLevels[guest.id] + 'px'
+            };
+          } else {
+            weekGroups[weekIndex].endDay = dayOfWeek;
           }
-          weekGroups[weekIndex].push(dayOfWeek);
         }
       });
+
+      // 將週組轉換為事件，姓名只在整個住宿期間顯示一次
+      const weekGroupKeys = Object.keys(weekGroups).map(Number).sort((a, b) => a - b);
       
-      // 為每週生成連續的事件
-      Object.keys(weekGroups).forEach(weekIndex => {
-        const daysInWeek = weekGroups[weekIndex].sort((a, b) => a - b);
+      weekGroupKeys.forEach((weekIndex, groupIndex) => {
+        const weekGroup = weekGroups[weekIndex];
         
-        // 將連續的天數分組
-        const continuousGroups = [];
-        let currentGroup = [daysInWeek[0]];
+        // 只在第一個週組顯示姓名，或者當週組不連續時顯示姓名
+        let shouldShowName = false;
         
-        for (let i = 1; i < daysInWeek.length; i++) {
-          if (daysInWeek[i] === daysInWeek[i-1] + 1) {
-            currentGroup.push(daysInWeek[i]);
-          } else {
-            continuousGroups.push(currentGroup);
-            currentGroup = [daysInWeek[i]];
+        if (groupIndex === 0) {
+          // 第一個週組總是顯示姓名
+          shouldShowName = true;
+        } else {
+          // 檢查前一週是否連續
+          const prevWeekIndex = weekGroupKeys[groupIndex - 1];
+          const prevWeekGroup = weekGroups[prevWeekIndex];
+          
+          // 如果前一週的結束不是週六(6)，或者這週的開始不是週日(0)，
+          // 或者週次不連續，則顯示姓名
+          const isWeekContinuous = (prevWeekIndex === weekIndex - 1);
+          const isPrevWeekEndingSaturday = (prevWeekGroup.endDay === 6);
+          const isCurrentWeekStartingSunday = (weekGroup.startDay === 0);
+          
+          if (!isWeekContinuous || 
+              !(isPrevWeekEndingSaturday && isCurrentWeekStartingSunday)) {
+            shouldShowName = true;
           }
         }
-        continuousGroups.push(currentGroup);
-        
-        // 為每個連續組創建事件，使用智慧分配的層級
-        continuousGroups.forEach((group, groupIndex) => {
-          events.push({
-            guest,
-            weekIndex: parseInt(weekIndex),
-            startDay: group[0],
-            endDay: group[group.length - 1],
-            top: guestLevels[guest.id] // 使用智慧分配的層級
-          });
+
+        allEvents.push({
+          ...weekGroup,
+          showName: shouldShowName
         });
       });
     });
     
-    return events;
+    return allEvents;
   };
 
   const guestEvents = calculateGuestEvents();
@@ -714,6 +722,7 @@ function CalendarView({ guests, onGuestClick }) {
         <div className="calendar-grid">
           {days.map((day, index) => {
             const weekIndex = Math.floor(index / 7);
+            const dayOfWeek = index % 7;
             const dayEvents = guestEvents.filter(event => 
               event.weekIndex === weekIndex
             );
@@ -748,7 +757,6 @@ function CalendarView({ guests, onGuestClick }) {
                 
                 <div className="guest-events">
                   {dayEvents.map((event, eventIndex) => {
-                    const dayOfWeek = index % 7;
                     const isEventStart = dayOfWeek === event.startDay;
                     const eventWidth = (event.endDay - event.startDay + 1) * 100;
                     
@@ -770,7 +778,8 @@ function CalendarView({ guests, onGuestClick }) {
                           }}
                           title={`${event.guest.name} (${event.guest.checkInDate} - ${event.guest.checkOutDate})`}
                         >
-                          {event.guest.name}
+                          {/* 只在需要顯示姓名的地方顯示 */}
+                          {event.showName ? event.guest.name : ''}
                         </div>
                       );
                     }
@@ -846,7 +855,7 @@ function GuestDetail({ guest, setCurrentView, landlordView, updateGuestPayment }
         </div>
         
         <div className="form-group">
-          <label className="form-label">離開日期</label>
+          <label className="form-label">退房日期</label>
           <div style={{padding: '0.875rem', background: '#f9fafb', borderRadius: '8px'}}>
             {guest.checkOutDate}
           </div>
