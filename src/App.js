@@ -86,7 +86,14 @@ function App() {
   return (
     <div className="app">
       {currentView === 'home' && <HomePage setCurrentView={setCurrentView} />}
-      {currentView === 'guest' && <GuestForm setCurrentView={setCurrentView} addGuest={addGuest} />}
+      {/* 修正：傳遞 guests 參數給 GuestForm */}
+      {currentView === 'guest' && (
+        <GuestForm 
+          setCurrentView={setCurrentView} 
+          addGuest={addGuest} 
+          guests={guests}
+        />
+      )}
       {currentView === 'landlord' && <LandlordLogin setCurrentView={setCurrentView} />}
       {currentView === 'guestList' && (
         <LandlordDashboard 
@@ -138,8 +145,8 @@ function HomePage({ setCurrentView }) {
   );
 }
 
-// 旅客表單組件 - 電話非必填版本
-function GuestForm({ setCurrentView, addGuest }) {
+// 修改後的旅客表單組件 - 防止時間段重複預訂
+function GuestForm({ setCurrentView, addGuest, guests }) {
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
@@ -148,17 +155,60 @@ function GuestForm({ setCurrentView, addGuest }) {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // 檢查時間段是否與現有預訂重疊（允許一退一住）
+  const checkTimeOverlap = (newCheckIn, newCheckOut) => {
+    if (!guests || guests.length === 0) return [];
+    
+    const newCheckInDate = new Date(newCheckIn + 'T00:00:00');
+    const newCheckOutDate = new Date(newCheckOut + 'T00:00:00');
+
+    // 檢查是否與現有房客的時間重疊
+    const overlappingGuests = guests.filter(guest => {
+      const existingCheckIn = new Date(guest.checkInDate + 'T00:00:00');
+      const existingCheckOut = new Date(guest.checkOutDate + 'T00:00:00');
+      
+      // 修改重疊邏輯：允許一退一住
+      // 新預訂入住日期 < 現有預訂退房日期 且 新預訂退房日期 > 現有預訂入住日期
+      // 這樣就允許了 8/17 退房，8/17 入住的情況
+      return (newCheckInDate < existingCheckOut && newCheckOutDate > existingCheckIn);
+    });
+
+    return overlappingGuests;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    // 修改驗證邏輯：電話不再是必填欄位
+    
+    // 基本驗證
     if (!formData.name || !formData.checkInDate || !formData.checkOutDate) {
       alert('請填寫所有必填欄位（姓名、入住日期、退房日期）');
       return;
     }
 
     // 檢查日期邏輯
-    if (new Date(formData.checkOutDate) <= new Date(formData.checkInDate)) {
+    const checkInDate = new Date(formData.checkInDate);
+    const checkOutDate = new Date(formData.checkOutDate);
+    
+    if (checkOutDate <= checkInDate) {
       alert('退房日期必須晚於入住日期');
+      return;
+    }
+    
+    // 檢查是否為同一天（不允許0晚住宿）
+    if (formData.checkInDate === formData.checkOutDate) {
+      alert('退房日期不可和入住日期選同一天，至少需要住宿1晚');
+      return;
+    }
+
+    // 檢查時間段是否重疊
+    const overlappingGuests = checkTimeOverlap(formData.checkInDate, formData.checkOutDate);
+    
+    if (overlappingGuests.length > 0) {
+      const conflictInfo = overlappingGuests.map(guest => 
+        `${guest.name} (${guest.checkInDate} ~ ${guest.checkOutDate})`
+      ).join('\n');
+      
+      alert(`預訂失敗！\n\n所選時間段與以下現有預訂重疊：\n${conflictInfo}\n\n請選擇其他日期。`);
       return;
     }
 
@@ -176,6 +226,36 @@ function GuestForm({ setCurrentView, addGuest }) {
     setIsSubmitting(false);
   };
 
+  // 獲取可用日期建議（找出空檔，至少1晚住宿）
+  const getAvailableDateSuggestions = () => {
+    if (!formData.checkInDate || !guests) return [];
+    
+    const requestedCheckIn = new Date(formData.checkInDate + 'T00:00:00');
+    const suggestions = [];
+    
+    // 檢查接下來30天內的可用日期
+    for (let i = 0; i < 30; i++) {
+      const testDate = new Date(requestedCheckIn);
+      testDate.setDate(testDate.getDate() + i);
+      
+      // 檢查從這個日期開始是否有至少1晚可用（退房日期是隔天）
+      const testCheckOut = new Date(testDate);
+      testCheckOut.setDate(testCheckOut.getDate() + 1);
+      
+      const hasOverlap = checkTimeOverlap(
+        testDate.toISOString().split('T')[0],
+        testCheckOut.toISOString().split('T')[0]
+      );
+      
+      if (hasOverlap.length === 0) {
+        suggestions.push(testDate.toISOString().split('T')[0]);
+        if (suggestions.length >= 5) break; // 最多顯示5個建議
+      }
+    }
+    
+    return suggestions;
+  };
+
   return (
     <div className="container">
       <div className="nav-header">
@@ -187,6 +267,73 @@ function GuestForm({ setCurrentView, addGuest }) {
       </div>
       
       <div className="card">
+        {/* 添加預訂衝突警告 */}
+        {formData.checkInDate && formData.checkOutDate && (
+          (() => {
+            const overlaps = checkTimeOverlap(formData.checkInDate, formData.checkOutDate);
+            if (overlaps.length > 0) {
+              const suggestions = getAvailableDateSuggestions();
+              return (
+                <div style={{
+                  background: '#fef2f2',
+                  border: '1px solid #fecaca',
+                  borderRadius: '8px',
+                  padding: '1rem',
+                  marginBottom: '1rem',
+                  color: '#dc2626'
+                }}>
+                  <div style={{ fontWeight: '600', marginBottom: '0.5rem' }}>
+                    ⚠️ 時間衝突警告
+                  </div>
+                  <div style={{ fontSize: '0.9rem', marginBottom: '0.5rem' }}>
+                    所選時間段與以下預訂重疊：
+                  </div>
+                  {overlaps.map(guest => (
+                    <div key={guest.id} style={{ 
+                      fontSize: '0.85rem', 
+                      background: 'rgba(220, 38, 38, 0.1)', 
+                      padding: '0.25rem 0.5rem', 
+                      borderRadius: '4px',
+                      margin: '0.25rem 0'
+                    }}>
+                      {guest.name} ({guest.checkInDate} ~ {guest.checkOutDate})
+                    </div>
+                  ))}
+                  
+                  {suggestions.length > 0 && (
+                    <div style={{ marginTop: '0.75rem' }}>
+                      <div style={{ fontSize: '0.85rem', fontWeight: '500', marginBottom: '0.25rem' }}>
+                        建議可用日期：
+                      </div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem' }}>
+                        {suggestions.map(date => (
+                          <button
+                            key={date}
+                            type="button"
+                            onClick={() => setFormData({...formData, checkInDate: date, checkOutDate: ''})}
+                            style={{
+                              background: '#10b981',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '4px',
+                              padding: '0.25rem 0.5rem',
+                              fontSize: '0.75rem',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            {date}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            }
+            return null;
+          })()
+        )}
+
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label className="form-label">姓名 *</label>
@@ -218,7 +365,7 @@ function GuestForm({ setCurrentView, addGuest }) {
               type="date"
               className="form-input"
               value={formData.checkInDate}
-              onChange={(e) => setFormData({...formData, checkInDate: e.target.value})}
+              onChange={(e) => setFormData({...formData, checkInDate: e.target.value, checkOutDate: ''})}
               min={new Date().toISOString().split('T')[0]}
               disabled={isSubmitting}
             />
@@ -231,7 +378,14 @@ function GuestForm({ setCurrentView, addGuest }) {
               className="form-input"
               value={formData.checkOutDate}
               onChange={(e) => setFormData({...formData, checkOutDate: e.target.value})}
-              min={formData.checkInDate || new Date().toISOString().split('T')[0]}
+              min={formData.checkInDate ? 
+                (() => {
+                  const nextDay = new Date(formData.checkInDate);
+                  nextDay.setDate(nextDay.getDate() + 1);
+                  return nextDay.toISOString().split('T')[0];
+                })() :
+                new Date().toISOString().split('T')[0]
+              }
               disabled={isSubmitting}
             />
           </div>
@@ -239,7 +393,7 @@ function GuestForm({ setCurrentView, addGuest }) {
           <button 
             type="submit" 
             className="btn btn-success"
-            disabled={isSubmitting}
+            disabled={isSubmitting || (formData.checkInDate && formData.checkOutDate && checkTimeOverlap(formData.checkInDate, formData.checkOutDate).length > 0)}
           >
             {isSubmitting ? '正在保存至雲端...' : '確認登記'}
           </button>
@@ -596,8 +750,8 @@ function CalendarView({ guests, onGuestClick }) {
           const otherCheckIn = new Date(otherGuest.checkInDate + 'T00:00:00');
           const otherCheckOut = new Date(otherGuest.checkOutDate + 'T00:00:00');
           
-          // 檢查時間是否重疊
-          return (checkIn <= otherCheckOut && checkOut >= otherCheckIn);
+          // 檢查時間是否重疊（允許一退一住）
+          return (checkIn < otherCheckOut && checkOut > otherCheckIn);
         });
         
         if (!hasConflict) {
