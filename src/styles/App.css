@@ -1,0 +1,573 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Inter', sans-serif;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  color: #1e293b;
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.container {
+  max-width: 450px;
+  margin: 0 auto;
+  padding: 1.5rem;
+  width: 100%;
+}
+
+/* 房東管理界面的容器 */
+.landlord-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1.5rem;
+  width: 100%;
+}
+
+/* 日曆專用容器 */
+.calendar-container-wrapper {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 1.5rem;
+  width: 100%;
+}
+
+/* 按鈕樣式 - 無陰影版本 */
+.btn {
+  width: 100%;
+  padding: 1rem 1.5rem;
+  border: none;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin-bottom: 1rem;
+  text-align: center;
+  text-decoration: none;
+  display: inline-block;
+  letter-spacing: -0.025em;
+  border: 1px solid transparent;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+  color: white;
+  border: 1px solid #2563eb;
+}
+
+.btn-primary:hover {
+  background: linear-gradient(135deg, #2563eb, #1e40af);
+  transform: translateY(-1px);
+}
+
+.btn-secondary {
+  background: linear-gradient(135deg, #64748b, #475569);
+  color: white;
+  border: 1px solid #52525b;
+}
+
+.btn-secondary:hover {
+  background: linear-gradient(135deg, #475569, #334155);
+  transform: translateY(-1px);
+}
+
+.btn-success {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: white;
+  border: 1px solid #0d9488;
+}
+
+.btn-success:hover {
+  background: linear-gradient(135deg, #059669, #047857);
+  transform: translateY(-1px);
+}
+
+.btn-outline {
+  background: white;
+  border: 2px solid #3b82f6;
+  color: #3b82f6;
+}
+
+.btn-outline:hover {
+  background: #3b82f6;
+  color: white;
+  transform: translateY(-1px);
+}
+
+.btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+/* 表單樣式 - 無陰影版本 */
+.form-group {
+  margin-bottom: 1.5rem;
+}
+
+.form-label {
+  display: block;
+  margin-bottom: 0.75rem;
+  font-weight: 600;
+  color: #374151;
+  font-size: 0.95rem;
+  letter-spacing: -0.025em;
+}
+
+.form-input {
+  width: 100%;
+  padding: 1rem 1.25rem;
+  border: 2px solid #e2e8f0;
+  border-radius: 12px;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+  background: white;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  transform: translateY(-1px);
+}
+
+.form-input::placeholder {
+  color: #9ca3af;
+}
+
+/* 卡片樣式 - 無陰影版本 */
+.card {
+  background: white;
+  border-radius: 16px;
+  padding: 2rem;
+  margin-bottom: 1.5rem;
+  border: 1px solid #f1f5f9;
+}
+
+.card-header {
+  margin-bottom: 1.5rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.card-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1e293b;
+  text-align: center;
+  letter-spacing: -0.025em;
+}
+
+/* 導航樣式 - 無陰影版本 */
+.nav-header {
+  padding: 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  /* margin-bottom: 1.5rem; */
+}
+
+.nav-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #1e293b;
+  letter-spacing: -0.025em;
+}
+
+.nav-back {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  cursor: pointer;
+  color: #64748b;
+  transition: all 0.3s ease;
+  font-weight: 600;
+}
+
+.nav-back:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #475569;
+  transform: translateY(-1px);
+}
+
+/* 房客列表樣式 - 無陰影版本 */
+.guest-list {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+@media (min-width: 768px) {
+  .guest-list {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .guest-list {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.guest-item {
+  background: white;
+  border-radius: 12px;
+  padding: 1.5rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: 1px solid #f1f5f9;
+  height: fit-content;
+}
+
+.guest-item:hover {
+  transform: translateY(-2px);
+  border-color: #e2e8f0;
+}
+
+.guest-name {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+  color: #1e293b;
+  letter-spacing: -0.025em;
+}
+
+.guest-date {
+  color: #64748b;
+  font-size: 0.9rem;
+  margin-bottom: 0.75rem;
+  line-height: 1.4;
+}
+
+.payment-status {
+  display: inline-block;
+  padding: 0.5rem 1rem;
+  border-radius: 24px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.025em;
+}
+
+.status-paid {
+  background: linear-gradient(135deg, #dcfce7, #bbf7d0);
+  color: #166534;
+  border: 1px solid #86efac;
+}
+
+.status-unpaid {
+  background: linear-gradient(135deg, #fef3c7, #fde68a);
+  color: #92400e;
+  border: 1px solid #fbbf24;
+}
+
+/* 視圖切換樣式 - 無陰影版本 */
+.view-toggle {
+  display: flex;
+  background: white;
+  border-radius: 12px;
+  padding: 0.5rem;
+  margin-bottom: 1rem;
+  border: 1px solid #f1f5f9;
+}
+
+.view-toggle button {
+  flex: 1;
+  padding: 0.875rem 1rem;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  color: #64748b;
+  font-size: 0.95rem;
+}
+
+.view-toggle button.active {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  color: white;
+  transform: translateY(-1px);
+}
+
+.view-toggle button:not(.active):hover {
+  background: #f8fafc;
+  color: #475569;
+}
+
+/* 日曆樣式 - 完全簡化版本 */
+.calendar-container {
+  border-radius: 0 0 16px 16px;
+  overflow: hidden;
+  border: 1px solid #f1f5f9;
+}
+
+.calendar-header {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  background: #f1f5f9;
+  margin-bottom: 1px;
+}
+
+.calendar-header-cell {
+  padding: 1rem 0.5rem;
+  text-align: center;
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: #64748b;
+  background: white;
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  min-height: 480px;
+  gap: 1px;
+}
+
+.calendar-day {
+  min-height: 100px;
+  padding: 0.75rem;
+  position: relative;
+  background: white;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  display: flex;
+  flex-direction: column;
+}
+
+.calendar-day:hover {
+  background: #fafbfc;
+}
+
+.calendar-day-number {
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  font-size: 0.875rem;
+  color: #1e293b;
+  align-self: flex-start;
+}
+
+.calendar-day.other-month .calendar-day-number {
+  color: #cbd5e1;
+}
+
+.calendar-day.today {
+  background: #eff6ff;
+}
+
+.calendar-day.today .calendar-day-number {
+  background: #3b82f6;
+  color: white;
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+/* 房客住宿條 - 無陰影版本 */
+.guest-events {
+  flex: 1;
+  position: relative;
+  margin-top: 0.25rem;
+}
+
+.guest-event {
+  position: absolute;
+  height: 24px;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: white;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 2px;
+}
+
+.guest-event:hover {
+  transform: translateY(-1px);
+}
+
+/* 柔和的旅客顏色 */
+.guest-color-0 { 
+  background: linear-gradient(135deg, #a7c7e7, #6ea8da);
+  border-left: 3px solid #4a90c2;
+}
+.guest-color-1 { 
+  background: linear-gradient(135deg, #f4a6a6, #e67e7e);
+  border-left: 3px solid #d64545;
+}
+.guest-color-2 { 
+  background: linear-gradient(135deg, #a8d5ba, #7bc88a);
+  border-left: 3px solid #48a867;
+}
+.guest-color-3 { 
+  background: linear-gradient(135deg, #f4c27a, #ebb35a);
+  border-left: 3px solid #d4941a;
+}
+.guest-color-4 { 
+  background: linear-gradient(135deg, #c8a8e9, #b088d6);
+  border-left: 3px solid #8e44ad;
+}
+.guest-color-5 { 
+  background: linear-gradient(135deg, #f5a3d0, #e779b7);
+  border-left: 3px solid #e91e63;
+}
+.guest-color-6 { 
+  background: linear-gradient(135deg, #87ceeb, #4fb3d9);
+  border-left: 3px solid #1e88e5;
+}
+.guest-color-7 { 
+  background: linear-gradient(135deg, #c5e1a5, #9ccc65);
+  border-left: 3px solid #689f38;
+}
+
+/* 月份導航 - 無陰影版本 */
+.month-navigation {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem;
+  background: white;
+  border-radius: 16px 16px 0 0;
+  border: 1px solid #f1f5f9;
+  border-bottom: none;
+}
+
+.month-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1e293b;
+  letter-spacing: -0.025em;
+}
+
+.month-nav-btn {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 1.2rem;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.month-nav-btn:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #475569;
+  transform: translateY(-1px);
+}
+
+.month-nav-btn:active {
+  transform: translateY(0);
+}
+
+/* 週末樣式 */
+.calendar-day.weekend {
+  background: #fafbfc;
+}
+
+.calendar-day.weekend:hover {
+  background: #f5f7fa;
+}
+
+/* 響應式調整 */
+@media (max-width: 768px) {
+  .container, .landlord-container, .calendar-container-wrapper {
+    padding: 1rem;
+  }
+  
+  .calendar-day {
+    min-height: 80px;
+    padding: 0.5rem;
+  }
+  
+  .calendar-day-number {
+    font-size: 0.8rem;
+  }
+  
+  .guest-event {
+    height: 20px;
+    font-size: 0.7rem;
+    padding: 2px 6px;
+  }
+  
+  .month-navigation {
+    padding: 1rem;
+  }
+  
+  .month-title {
+    font-size: 1.25rem;
+  }
+  
+  .card {
+    padding: 1.5rem;
+  }
+  
+  .nav-header {
+    padding: 1rem;
+    margin-bottom: 1rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .container {
+    max-width: 600px;
+    padding: 2rem;
+  }
+  
+  .landlord-container {
+    max-width: 1200px;
+    padding: 2rem;
+  }
+  
+  .calendar-container-wrapper {
+    max-width: 1000px;
+    padding: 2rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .container {
+    max-width: 800px;
+  }
+  
+  .landlord-container {
+    max-width: 1400px;
+  }
+  
+  .calendar-container-wrapper {
+    max-width: 1200px;
+  }
+}
