@@ -1,6 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import './styles/App.css';
-import { getGuests, addGuest as addGuestToFirestore, updateGuestPayment as updatePaymentInFirestore } from './services/guestService';
+import { 
+  getGuests, 
+  addGuest as addGuestToFirestore, 
+  updateGuestPayment as updatePaymentInFirestore,
+  updateGuest as updateGuestInFirestore,
+  deleteGuest as deleteGuestFromFirestore
+} from './services/guestService';
 
 function App() {
   const [currentView, setCurrentView] = useState('home');
@@ -58,6 +64,34 @@ function App() {
     }
   };
 
+  // Update guest information in Firestore
+  const updateGuest = async (guestId, updateData) => {
+    try {
+      await updateGuestInFirestore(guestId, updateData);
+      setGuests(prevGuests => 
+        prevGuests.map(guest => 
+          guest.id === guestId ? { ...guest, ...updateData } : guest
+        ).sort((a, b) => new Date(a.checkInDate) - new Date(b.checkInDate))
+      );
+    } catch (error) {
+      console.error('Error updating guest:', error);
+      throw error;
+    }
+  };
+
+  // Delete guest from Firestore
+  const deleteGuest = async (guestId) => {
+    try {
+      await deleteGuestFromFirestore(guestId);
+      setGuests(prevGuests => 
+        prevGuests.filter(guest => guest.id !== guestId)
+      );
+    } catch (error) {
+      console.error('Error deleting guest:', error);
+      throw error;
+    }
+  };
+
   if (loading) {
     return (
       <div className="app">
@@ -111,6 +145,19 @@ function App() {
           setCurrentView={setCurrentView}
           landlordView={landlordView}
           updateGuestPayment={updateGuestPayment}
+          updateGuest={updateGuest}
+          deleteGuest={deleteGuest}
+          guests={guests}
+          setSelectedGuest={setSelectedGuest}
+        />
+      )}
+      {currentView === 'editGuest' && (
+        <EditGuestForm
+          guest={selectedGuest}
+          setCurrentView={setCurrentView}
+          updateGuest={updateGuest}
+          guests={guests}
+          setSelectedGuest={setSelectedGuest}
         />
       )}
     </div>
@@ -123,7 +170,7 @@ function HomePage({ setCurrentView }) {
     <div className="container">
       <div className="card">
         <div className="card-header">
-          <h1 className="card-title">毓鳳頭城小屋</h1>
+          <h1 className="card-title">RENTAL管理系統</h1>
           <p style={{textAlign: 'center', color: '#6b7280', fontSize: '0.9rem', marginTop: '0.5rem'}}>
             雲端數據存儲 | 即時同步
           </p>
@@ -950,8 +997,9 @@ function CalendarView({ guests, onGuestClick }) {
 }
 
 // 房客詳細資料組件
-function GuestDetail({ guest, setCurrentView, landlordView, updateGuestPayment }) {
+function GuestDetail({ guest, setCurrentView, landlordView, updateGuestPayment, updateGuest, deleteGuest, guests, setSelectedGuest }) {
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const togglePaymentStatus = async () => {
     setIsUpdating(true);
@@ -970,6 +1018,29 @@ function GuestDetail({ guest, setCurrentView, landlordView, updateGuestPayment }
       alert('更新失敗，請檢查網路連線並重試');
     }
     setIsUpdating(false);
+  };
+
+  const handleEditGuest = () => {
+    setCurrentView('editGuest');
+  };
+
+  const handleDeleteGuest = async () => {
+    const confirmDelete = window.confirm(
+      `確定要刪除房客「${guest.name}」的預訂嗎？\n\n此操作無法復原！`
+    );
+    
+    if (!confirmDelete) return;
+
+    setIsDeleting(true);
+    try {
+      await deleteGuest(guest.id);
+      alert('房客資料已成功刪除');
+      setCurrentView('guestList');
+    } catch (error) {
+      console.error('Error deleting guest:', error);
+      alert('刪除失敗，請檢查網路連線並重試');
+    }
+    setIsDeleting(false);
   };
 
   return (
@@ -997,7 +1068,7 @@ function GuestDetail({ guest, setCurrentView, landlordView, updateGuestPayment }
         <div className="form-group">
           <label className="form-label">電話</label>
           <div style={{padding: '0.875rem', background: '#f9fafb', borderRadius: '8px'}}>
-            {guest.phone}
+            {guest.phone || '未提供'}
           </div>
         </div>
         
@@ -1024,14 +1095,366 @@ function GuestDetail({ guest, setCurrentView, landlordView, updateGuestPayment }
           </div>
         </div>
         
-        <button 
-          className={`btn ${guest.paymentStatus === '已付款' ? 'btn-secondary' : 'btn-success'}`}
-          onClick={togglePaymentStatus}
-          disabled={isUpdating}
-        >
-          {isUpdating ? '正在更新至雲端...' : 
-           guest.paymentStatus === '已付款' ? '標記為未付款' : '標記為已付款'}
+        {/* 操作按鈕區域 */}
+        <div style={{display: 'flex', flexDirection: 'column', gap: '0.75rem'}}>
+          {/* 付款狀態切換 */}
+          <button 
+            className={`btn ${guest.paymentStatus === '已付款' ? 'btn-secondary' : 'btn-success'}`}
+            onClick={togglePaymentStatus}
+            disabled={isUpdating || isDeleting}
+          >
+            {isUpdating ? '正在更新至雲端...' : 
+             guest.paymentStatus === '已付款' ? '標記為未付款' : '標記為已付款'}
+          </button>
+
+          {/* 修改和刪除按鈕並排 */}
+          <div style={{display: 'flex', gap: '0.75rem'}}>
+            {/* 修改預訊按鈕 - 較柔和的藍色 */}
+            <button 
+              className="btn"
+              onClick={handleEditGuest}
+              disabled={isUpdating || isDeleting}
+              style={{
+                flex: 1,
+                background: '#60a5fa',
+                color: 'white',
+                border: '1px solid #60a5fa',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              📝 修改資料
+            </button>
+
+            {/* 刪除預訂按鈕 - 較柔和的紅色 */}
+            <button 
+              className="btn"
+              onClick={handleDeleteGuest}
+              disabled={isUpdating || isDeleting}
+              style={{
+                flex: 1,
+                background: '#f87171',
+                color: 'white',
+                border: '1px solid #f87171',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              {isDeleting ? '刪除中...' : '🗑️ 刪除'}
+            </button>
+          </div>
+        </div>
+        
+        <div style={{
+          marginTop: '1rem',
+          padding: '0.75rem',
+          background: '#fef3c7',
+          border: '1px solid #fbbf24',
+          borderRadius: '8px',
+          fontSize: '0.85rem',
+          color: '#92400e'
+        }}>
+          ⚠️ 修改和刪除操作僅限房東使用，請謹慎操作
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// 編輯房客表單組件
+function EditGuestForm({ guest, setCurrentView, updateGuest, guests, setSelectedGuest }) {
+  const [formData, setFormData] = useState({
+    name: guest.name || '',
+    phone: guest.phone || '',
+    checkInDate: guest.checkInDate || '',
+    checkOutDate: guest.checkOutDate || ''
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // 檢查時間段是否與其他現有預訂重疊（排除當前房客）
+  const checkTimeOverlap = (newCheckIn, newCheckOut) => {
+    if (!guests || guests.length === 0) return [];
+    
+    const newCheckInDate = new Date(newCheckIn + 'T00:00:00');
+    const newCheckOutDate = new Date(newCheckOut + 'T00:00:00');
+
+    // 檢查是否與其他房客的時間重疊（排除當前編輯的房客）
+    const overlappingGuests = guests.filter(otherGuest => {
+      if (otherGuest.id === guest.id) return false; // 排除當前房客
+      
+      const existingCheckIn = new Date(otherGuest.checkInDate + 'T00:00:00');
+      const existingCheckOut = new Date(otherGuest.checkOutDate + 'T00:00:00');
+      
+      // 修改重疊邏輯：允許一退一住
+      return (newCheckInDate < existingCheckOut && newCheckOutDate > existingCheckIn);
+    });
+
+    return overlappingGuests;
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    // 基本驗證
+    if (!formData.name || !formData.checkInDate || !formData.checkOutDate) {
+      alert('請填寫所有必填欄位（姓名、入住日期、退房日期）');
+      return;
+    }
+
+    // 檢查日期邏輯
+    const checkInDate = new Date(formData.checkInDate);
+    const checkOutDate = new Date(formData.checkOutDate);
+    
+    if (checkOutDate <= checkInDate) {
+      alert('退房日期必須晚於入住日期');
+      return;
+    }
+    
+    // 檢查是否為同一天（不允許0晚住宿）
+    if (formData.checkInDate === formData.checkOutDate) {
+      alert('退房日期不可和入住日期選同一天，至少需要住宿1晚');
+      return;
+    }
+
+    // 檢查時間段是否與其他預訂重疊
+    const overlappingGuests = checkTimeOverlap(formData.checkInDate, formData.checkOutDate);
+    
+    if (overlappingGuests.length > 0) {
+      const conflictInfo = overlappingGuests.map(otherGuest => 
+        `${otherGuest.name} (${otherGuest.checkInDate} ~ ${otherGuest.checkOutDate})`
+      ).join('\n');
+      
+      alert(`修改失敗！\n\n所選時間段與以下現有預訂重疊：\n${conflictInfo}\n\n請選擇其他日期。`);
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      // 更新房客資料到 Firestore
+      await updateGuest(guest.id, formData);
+      
+      // 更新本地選中的房客對象
+      setSelectedGuest({...guest, ...formData});
+      
+      alert('房客資料修改成功！');
+      setCurrentView('guestDetail');
+    } catch (error) {
+      console.error('Error updating guest:', error);
+      alert('修改失敗，請檢查網路連線並重試');
+    }
+    setIsSubmitting(false);
+  };
+
+  // 獲取可用日期建議（找出空檔，排除當前房客）
+  const getAvailableDateSuggestions = () => {
+    if (!formData.checkInDate || !guests) return [];
+    
+    const requestedCheckIn = new Date(formData.checkInDate + 'T00:00:00');
+    const suggestions = [];
+    
+    // 檢查接下來30天內的可用日期
+    for (let i = 0; i < 30; i++) {
+      const testDate = new Date(requestedCheckIn);
+      testDate.setDate(testDate.getDate() + i);
+      
+      // 檢查從這個日期開始是否有至少1晚可用（退房日期是隔天）
+      const testCheckOut = new Date(testDate);
+      testCheckOut.setDate(testCheckOut.getDate() + 1);
+      
+      const hasOverlap = checkTimeOverlap(
+        testDate.toISOString().split('T')[0],
+        testCheckOut.toISOString().split('T')[0]
+      );
+      
+      if (hasOverlap.length === 0) {
+        suggestions.push(testDate.toISOString().split('T')[0]);
+        if (suggestions.length >= 5) break; // 最多顯示5個建議
+      }
+    }
+    
+    return suggestions;
+  };
+
+  return (
+    <div className="container">
+      <div className="nav-header">
+        <button className="nav-back" onClick={() => setCurrentView('guestDetail')}>
+          ←
         </button>
+        <h1 className="nav-title">修改預訂資料</h1>
+        <div></div>
+      </div>
+      
+      <div className="card">
+        <div style={{textAlign: 'center', marginBottom: '1rem', color: '#6b7280', fontSize: '0.9rem'}}>
+          修改房客：{guest.name} | ID: {guest.id.substring(0, 8)}...
+        </div>
+
+        {/* 添加修改衝突警告 */}
+        {formData.checkInDate && formData.checkOutDate && (
+          (() => {
+            const overlaps = checkTimeOverlap(formData.checkInDate, formData.checkOutDate);
+            if (overlaps.length > 0) {
+              const suggestions = getAvailableDateSuggestions();
+              return (
+                <div style={{
+                  background: '#fef2f2',
+                  border: '1px solid #fecaca',
+                  borderRadius: '8px',
+                  padding: '1rem',
+                  marginBottom: '1rem',
+                  color: '#dc2626'
+                }}>
+                  <div style={{ fontWeight: '600', marginBottom: '0.5rem' }}>
+                    ⚠️ 時間衝突警告
+                  </div>
+                  <div style={{ fontSize: '0.9rem', marginBottom: '0.5rem' }}>
+                    所選時間段與以下預訂重疊：
+                  </div>
+                  {overlaps.map(otherGuest => (
+                    <div key={otherGuest.id} style={{ 
+                      fontSize: '0.85rem', 
+                      background: 'rgba(220, 38, 38, 0.1)', 
+                      padding: '0.25rem 0.5rem', 
+                      borderRadius: '4px',
+                      margin: '0.25rem 0'
+                    }}>
+                      {otherGuest.name} ({otherGuest.checkInDate} ~ {otherGuest.checkOutDate})
+                    </div>
+                  ))}
+                  
+                  {suggestions.length > 0 && (
+                    <div style={{ marginTop: '0.75rem' }}>
+                      <div style={{ fontSize: '0.85rem', fontWeight: '500', marginBottom: '0.25rem' }}>
+                        建議可用日期：
+                      </div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem' }}>
+                        {suggestions.map(date => (
+                          <button
+                            key={date}
+                            type="button"
+                            onClick={() => setFormData({...formData, checkInDate: date, checkOutDate: ''})}
+                            style={{
+                              background: '#10b981',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '4px',
+                              padding: '0.25rem 0.5rem',
+                              fontSize: '0.75rem',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            {date}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            }
+            return null;
+          })()
+        )}
+
+        <form onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label className="form-label">姓名 *</label>
+            <input
+              type="text"
+              className="form-input"
+              value={formData.name}
+              onChange={(e) => setFormData({...formData, name: e.target.value})}
+              placeholder="請輸入姓名"
+              disabled={isSubmitting}
+            />
+          </div>
+          
+          <div className="form-group">
+            <label className="form-label">電話</label>
+            <input
+              type="tel"
+              className="form-input"
+              value={formData.phone}
+              onChange={(e) => setFormData({...formData, phone: e.target.value})}
+              placeholder="請輸入電話號碼（選填）"
+              disabled={isSubmitting}
+            />
+          </div>
+          
+          <div className="form-group">
+            <label className="form-label">入住日期 *</label>
+            <input
+              type="date"
+              className="form-input"
+              value={formData.checkInDate}
+              onChange={(e) => setFormData({...formData, checkInDate: e.target.value, checkOutDate: ''})}
+              disabled={isSubmitting}
+            />
+          </div>
+          
+          <div className="form-group">
+            <label className="form-label">退房日期 *</label>
+            <input
+              type="date"
+              className="form-input"
+              value={formData.checkOutDate}
+              onChange={(e) => setFormData({...formData, checkOutDate: e.target.value})}
+              min={formData.checkInDate ? 
+                (() => {
+                  const nextDay = new Date(formData.checkInDate);
+                  nextDay.setDate(nextDay.getDate() + 1);
+                  return nextDay.toISOString().split('T')[0];
+                })() :
+                undefined
+              }
+              disabled={isSubmitting}
+            />
+          </div>
+          
+          <div style={{display: 'flex', gap: '0.75rem'}}>
+            <button 
+              type="submit" 
+              className="btn"
+              disabled={isSubmitting || (formData.checkInDate && formData.checkOutDate && checkTimeOverlap(formData.checkInDate, formData.checkOutDate).length > 0)}
+              style={{
+                flex: 1,
+                background: '#rgb(16, 185, 129)',
+                color: 'white',
+                border: '1px solid #34d399',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              {isSubmitting ? '保存中...' : '💾 確認修改'}
+            </button>
+
+            <button 
+              type="button"
+              className="btn"
+              onClick={() => setCurrentView('guestDetail')}
+              disabled={isSubmitting}
+              style={{
+                flex: 1,
+                background: '#9ca3af',
+                color: 'white',
+                border: '1px solid #9ca3af',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              取消修改
+            </button>
+          </div>
+        </form>
+        
+        <div style={{
+          marginTop: '1rem',
+          padding: '0.75rem',
+          background: '#dbeafe',
+          border: '1px solid #60a5fa',
+          borderRadius: '8px',
+          fontSize: '0.85rem',
+          color: '#1d4ed8'
+        }}>
+          💡 提示：修改時會自動檢查與其他預訂的時間衝突
+        </div>
       </div>
     </div>
   );
