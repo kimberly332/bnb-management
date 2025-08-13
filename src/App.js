@@ -1417,7 +1417,7 @@ function EditGuestForm({ guest, setCurrentView, updateGuest, guests, setSelected
               disabled={isSubmitting || (formData.checkInDate && formData.checkOutDate && checkTimeOverlap(formData.checkInDate, formData.checkOutDate).length > 0)}
               style={{
                 flex: 1,
-                background: '#rgb(16, 185, 129)',
+                background: '#34d399',
                 color: 'white',
                 border: '1px solid #34d399',
                 transition: 'all 0.2s ease'
