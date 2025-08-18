@@ -231,7 +231,7 @@ function HomePage({ setCurrentView }) {
     <div className="container">
       <div className="card">
         <div className="card-header">
-          <h1 className="card-title">民宿管理系統</h1>
+          <h1 className="card-title">RENTAL管理系統</h1>
           <p style={{textAlign: 'center', color: '#6b7280', fontSize: '0.9rem', marginTop: '0.5rem'}}>
             多房東雲端管理平台 | 即時同步
           </p>
@@ -501,7 +501,7 @@ function LandlordDashboard({ landlord, guests, setCurrentView, landlordView, set
         </button>
       </div>
 
-      {/* 專屬URL區域 - 新增但保持簡潔 */}
+      {/* 專屬URL區域 - 新增前往表單按鈕 */}
       <div className="card" style={{marginBottom: '1rem', padding: '1rem'}}>
         <h3 style={{marginBottom: '0.5rem', color: '#1e293b', fontSize: '1rem'}}>旅客登記專屬連結</h3>
         <p style={{fontSize: '0.85rem', color: '#6b7280', marginBottom: '0.75rem'}}>
@@ -527,6 +527,21 @@ function LandlordDashboard({ landlord, guests, setCurrentView, landlordView, set
             style={{width: 'auto', margin: 0, padding: '0.5rem 0.75rem', fontSize: '0.85rem'}}
           >
             複製
+          </button>
+          <button 
+            onClick={() => setCurrentView('guestForm')}
+            className="btn"
+            style={{
+              width: 'auto',
+              margin: 0,
+              padding: '0.5rem 0.75rem',
+              fontSize: '0.85rem',
+              background: '#10b981',
+              color: 'white',
+              border: '1px solid #10b981'
+            }}
+          >
+            前往表單
           </button>
         </div>
       </div>
