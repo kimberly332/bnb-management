@@ -524,7 +524,7 @@ function LandlordDashboard({ landlord, guests, setCurrentView, landlordView, set
           <button 
             onClick={copyUrlToClipboard}
             className="btn btn-primary"
-            style={{background:'#60a5fa', width: 'auto', margin: 0, padding: '0.5rem 0.75rem', fontSize: '0.85rem', borderRadius: '8px',}}
+            style={{background:'#60a5fa', width: 'auto', margin: 0, padding: '0.5rem 0.75rem', fontSize: '0.85rem', borderRadius:'8px',}}
           >
             複製
           </button>
@@ -539,7 +539,7 @@ function LandlordDashboard({ landlord, guests, setCurrentView, landlordView, set
               background: '#10b981',
               color: 'white',
               border: '1px solid #10b981',
-              borderRadius: '8px',
+              borderRadius:'8px',
             }}
           >
             前往表單
@@ -853,6 +853,7 @@ function GuestForm({ setCurrentView, addGuest, guests, landlordId }) {
               className="form-input"
               value={formData.checkInDate}
               onChange={(e) => setFormData({...formData, checkInDate: e.target.value})}
+              min={new Date().toISOString().split('T')[0]}
             />
           </div>
           
@@ -863,6 +864,14 @@ function GuestForm({ setCurrentView, addGuest, guests, landlordId }) {
               className="form-input"
               value={formData.checkOutDate}
               onChange={(e) => setFormData({...formData, checkOutDate: e.target.value})}
+              min={formData.checkInDate ? 
+                (() => {
+                  const nextDay = new Date(formData.checkInDate);
+                  nextDay.setDate(nextDay.getDate() + 1);
+                  return nextDay.toISOString().split('T')[0];
+                })() :
+                new Date().toISOString().split('T')[0]
+              }
             />
           </div>
           
