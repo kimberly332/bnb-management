@@ -334,7 +334,7 @@ function LandlordRegister({ setCurrentView }) {
               maxLength="4"
             />
             <small style={{color: '#6b7280', fontSize: '0.85rem'}}>
-              此4位數字將作為您的登入密碼，每個房東的密碼必須唯一
+              此4位數字將作為您的登入密碼，每個房東的密碼不可重複
             </small>
           </div>
           
