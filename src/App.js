@@ -231,7 +231,7 @@ function HomePage({ setCurrentView }) {
     <div className="container">
       <div className="card">
         <div className="card-header">
-          <h1 className="card-title">RENTAL管理系統</h1>
+          <h1 className="card-title">民宿管理系統</h1>
           <p style={{textAlign: 'center', color: '#6b7280', fontSize: '0.9rem', marginTop: '0.5rem'}}>
             多房東雲端管理平台 | 即時同步
           </p>
