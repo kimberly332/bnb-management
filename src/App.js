@@ -524,7 +524,7 @@ function LandlordDashboard({ landlord, guests, setCurrentView, landlordView, set
           <button 
             onClick={copyUrlToClipboard}
             className="btn btn-primary"
-            style={{width: 'auto', margin: 0, padding: '0.5rem 0.75rem', fontSize: '0.85rem'}}
+            style={{background:'#60a5fa', width: 'auto', margin: 0, padding: '0.5rem 0.75rem', fontSize: '0.85rem', borderRadius: '8px',}}
           >
             複製
           </button>
@@ -538,7 +538,8 @@ function LandlordDashboard({ landlord, guests, setCurrentView, landlordView, set
               fontSize: '0.85rem',
               background: '#10b981',
               color: 'white',
-              border: '1px solid #10b981'
+              border: '1px solid #10b981',
+              borderRadius: '8px',
             }}
           >
             前往表單
