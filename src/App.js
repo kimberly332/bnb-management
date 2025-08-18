@@ -1,70 +1,119 @@
 import React, { useState, useEffect } from 'react';
 import './styles/App.css';
 import { 
-  getGuests, 
-  addGuest as addGuestToFirestore, 
-  updateGuestPayment as updatePaymentInFirestore,
-  updateGuest as updateGuestInFirestore,
-  deleteGuest as deleteGuestFromFirestore
-} from './services/guestService';
+  getLandlords, 
+  addLandlord, 
+  loginLandlord,
+  loginLandlordByPassword,
+  getGuestsByLandlord, 
+  addGuestToLandlord,
+  updateGuestPaymentInFirestore,
+  updateGuestInFirestore,
+  deleteGuestFromFirestore
+} from './services/landlordService';
 
 function App() {
-  const [currentView, setCurrentView] = useState('home');
+  const [currentView, setCurrentView] = useState('home'); // home, register, login, landlordDashboard, guestForm, guestDetail, editGuest
+  const [currentLandlord, setCurrentLandlord] = useState(null); // 當前登入的房東
   const [guests, setGuests] = useState([]);
-  const [landlordView, setLandlordView] = useState('list');
   const [selectedGuest, setSelectedGuest] = useState(null);
+  const [landlordView, setLandlordView] = useState('list');
   const [loading, setLoading] = useState(false);
+  const [guestFormLandlordId, setGuestFormLandlordId] = useState(null); // 用於專屬URL訪問
 
-  // Load guests from Firestore on app start
-  useEffect(() => {
-    loadGuests();
-  }, []);
-
-  const loadGuests = async () => {
+  // 載入房客資料
+  const loadGuests = async (landlordId) => {
+    if (!landlordId) return;
     setLoading(true);
     try {
-      const guestsData = await getGuests();
-      setGuests(guestsData);
-      console.log('載入房客資料:', guestsData);
+      const guestData = await getGuestsByLandlord(landlordId);
+      
+      // 計算房客狀態
+      const currentDate = new Date();
+      const processedGuests = guestData.map(guest => {
+        const checkInDate = new Date(guest.checkInDate + 'T00:00:00');
+        const checkOutDate = new Date(guest.checkOutDate + 'T00:00:00');
+        
+        let status, statusText;
+        if (currentDate < checkInDate) {
+          status = 'upcoming';
+          statusText = '即將入住';
+        } else if (currentDate >= checkInDate && currentDate <= checkOutDate) {
+          status = 'current';
+          statusText = '入住中';
+        } else {
+          status = 'completed';
+          statusText = '已完成';
+        }
+        
+        return { ...guest, status, statusText };
+      });
+      
+      setGuests(processedGuests);
     } catch (error) {
-      console.error('Error loading guests:', error);
-      alert('載入房客資料失敗，請檢查網路連線');
+      console.error('載入房客資料失敗:', error);
+      alert('載入房客資料失敗，請稍後再試');
     } finally {
       setLoading(false);
     }
   };
 
-  // Add new guest to Firestore
-  const addGuest = async (newGuestData) => {
+  // 檢查URL參數，看是否有房東ID
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const landlordId = urlParams.get('landlord');
+    
+    if (landlordId) {
+      setGuestFormLandlordId(landlordId);
+      setCurrentView('guestForm');
+    }
+  }, []);
+
+  // 房東登入後載入房客資料
+  useEffect(() => {
+    if (currentLandlord && currentView === 'landlordDashboard') {
+      loadGuests(currentLandlord.id);
+    }
+  }, [currentLandlord, currentView]);
+
+  // 新增房客
+  const addGuest = async (guestData) => {
     try {
-      const newGuest = await addGuestToFirestore(newGuestData);
-      setGuests(prevGuests => {
-        const updatedGuests = [...prevGuests, newGuest];
-        return updatedGuests.sort((a, b) => new Date(a.checkInDate) - new Date(b.checkInDate));
-      });
+      const landlordId = guestFormLandlordId || currentLandlord?.id;
+      if (!landlordId) {
+        throw new Error('無法確定房東ID');
+      }
+
+      const newGuest = await addGuestToLandlord(landlordId, guestData);
+      
+      // 如果是當前房東的房客，更新列表
+      if (currentLandlord && landlordId === currentLandlord.id) {
+        setGuests(prevGuests => [...prevGuests, newGuest].sort((a, b) => new Date(a.checkInDate) - new Date(b.checkInDate)));
+      }
+      
       return newGuest;
     } catch (error) {
-      console.error('Error adding guest:', error);
+      console.error('新增房客失敗:', error);
       throw error;
     }
   };
 
-  // Update guest payment status in Firestore
-  const updateGuestPayment = async (guestId, newStatus) => {
+  // 更新房客付款狀態
+  const updateGuestPayment = async (guestId, paymentStatus) => {
     try {
-      await updatePaymentInFirestore(guestId, newStatus);
+      await updateGuestPaymentInFirestore(guestId, paymentStatus);
       setGuests(prevGuests => 
         prevGuests.map(guest => 
-          guest.id === guestId ? { ...guest, paymentStatus: newStatus } : guest
+          guest.id === guestId ? { ...guest, paymentStatus } : guest
         )
       );
     } catch (error) {
-      console.error('Error updating payment:', error);
+      console.error('更新付款狀態失敗:', error);
       throw error;
     }
   };
 
-  // Update guest information in Firestore
+  // 更新房客資訊
   const updateGuest = async (guestId, updateData) => {
     try {
       await updateGuestInFirestore(guestId, updateData);
@@ -74,12 +123,12 @@ function App() {
         ).sort((a, b) => new Date(a.checkInDate) - new Date(b.checkInDate))
       );
     } catch (error) {
-      console.error('Error updating guest:', error);
+      console.error('更新房客資訊失敗:', error);
       throw error;
     }
   };
 
-  // Delete guest from Firestore
+  // 刪除房客
   const deleteGuest = async (guestId) => {
     try {
       await deleteGuestFromFirestore(guestId);
@@ -87,9 +136,17 @@ function App() {
         prevGuests.filter(guest => guest.id !== guestId)
       );
     } catch (error) {
-      console.error('Error deleting guest:', error);
+      console.error('刪除房客失敗:', error);
       throw error;
     }
+  };
+
+  // 房東登出
+  const logout = () => {
+    setCurrentLandlord(null);
+    setGuests([]);
+    setSelectedGuest(null);
+    setCurrentView('home');
   };
 
   if (loading) {
@@ -99,17 +156,9 @@ function App() {
           <div className="card">
             <div style={{textAlign: 'center', padding: '2rem'}}>
               <div style={{fontSize: '1.2rem', color: '#6b7280', marginBottom: '1rem'}}>
-                正在載入房客資料...
+                正在載入資料...
               </div>
-              <div style={{
-                width: '40px',
-                height: '40px',
-                border: '4px solid #f3f4f6',
-                borderTop: '4px solid #3b82f6',
-                borderRadius: '50%',
-                animation: 'spin 1s linear infinite',
-                margin: '0 auto'
-              }}></div>
+              <div className="loading-spinner"></div>
             </div>
           </div>
         </div>
@@ -119,24 +168,36 @@ function App() {
 
   return (
     <div className="app">
-      {currentView === 'home' && <HomePage setCurrentView={setCurrentView} />}
-      {/* 修正：傳遞 guests 參數給 GuestForm */}
-      {currentView === 'guest' && (
-        <GuestForm 
+      {currentView === 'home' && (
+        <HomePage setCurrentView={setCurrentView} />
+      )}
+      {currentView === 'register' && (
+        <LandlordRegister setCurrentView={setCurrentView} />
+      )}
+      {currentView === 'login' && (
+        <LandlordLogin 
           setCurrentView={setCurrentView} 
-          addGuest={addGuest} 
-          guests={guests}
+          setCurrentLandlord={setCurrentLandlord}
         />
       )}
-      {currentView === 'landlord' && <LandlordLogin setCurrentView={setCurrentView} />}
-      {currentView === 'guestList' && (
+      {currentView === 'landlordDashboard' && (
         <LandlordDashboard 
+          landlord={currentLandlord}
           guests={guests} 
           setCurrentView={setCurrentView}
           landlordView={landlordView}
           setLandlordView={setLandlordView}
           setSelectedGuest={setSelectedGuest}
-          refreshGuests={loadGuests}
+          refreshGuests={() => loadGuests(currentLandlord?.id)}
+          logout={logout}
+        />
+      )}
+      {currentView === 'guestForm' && (
+        <GuestForm 
+          setCurrentView={setCurrentView} 
+          addGuest={addGuest} 
+          guests={guests}
+          landlordId={guestFormLandlordId}
         />
       )}
       {currentView === 'guestDetail' && (
@@ -170,30 +231,333 @@ function HomePage({ setCurrentView }) {
     <div className="container">
       <div className="card">
         <div className="card-header">
-          <h1 className="card-title">RENTAL管理系統</h1>
+          <h1 className="card-title">民宿管理系統</h1>
           <p style={{textAlign: 'center', color: '#6b7280', fontSize: '0.9rem', marginTop: '0.5rem'}}>
-            雲端數據存儲 | 即時同步
+            多房東雲端管理平台 | 即時同步
           </p>
         </div>
         <button 
           className="btn btn-primary"
-          onClick={() => setCurrentView('guest')}
+          onClick={() => setCurrentView('register')}
         >
-          入住登記
+          房東註冊
         </button>
         <button 
           className="btn btn-secondary"
-          onClick={() => setCurrentView('landlord')}
+          onClick={() => setCurrentView('login')}
         >
-          房東管理
+          房東登入
         </button>
       </div>
     </div>
   );
 }
 
-// 修改後的旅客表單組件 - 防止時間段重複預訂
-function GuestForm({ setCurrentView, addGuest, guests }) {
+// 房東註冊組件 (簡化為4位數數字)
+function LandlordRegister({ setCurrentView }) {
+  const [formData, setFormData] = useState({
+    businessName: '',
+    password: ''
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (!formData.businessName || !formData.password) {
+      alert('請填寫所有必填欄位');
+      return;
+    }
+
+    if (formData.password.length !== 4 || !/^\d{4}$/.test(formData.password)) {
+      alert('密碼必須為4位數字');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await addLandlord({
+        businessName: formData.businessName,
+        password: formData.password
+      });
+      
+      alert('註冊成功！請登入');
+      setCurrentView('login');
+    } catch (error) {
+      console.error('註冊失敗:', error);
+      if (error.message.includes('已被使用')) {
+        alert('此4位數密碼已被其他房東使用，請選擇其他數字');
+      } else {
+        alert('註冊失敗，請稍後再試');
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="container">
+      <div className="nav-header">
+        <button className="nav-back" onClick={() => setCurrentView('home')}>
+          ←
+        </button>
+        <h1 className="nav-title">房東註冊</h1>
+        <div></div>
+      </div>
+      
+      <div className="card">
+        <form onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label className="form-label">民宿/房屋名稱 *</label>
+            <input
+              type="text"
+              className="form-input"
+              value={formData.businessName}
+              onChange={(e) => setFormData({...formData, businessName: e.target.value})}
+              placeholder="例如：毓鳳頭城小屋"
+            />
+          </div>
+          
+          <div className="form-group">
+            <label className="form-label">4位數登入密碼 *</label>
+            <input
+              type="password"
+              className="form-input"
+              value={formData.password}
+              onChange={(e) => {
+                const value = e.target.value.replace(/\D/g, ''); // 只允許數字
+                if (value.length <= 4) {
+                  setFormData({...formData, password: value});
+                }
+              }}
+              placeholder="請設定4位數字密碼"
+              maxLength="4"
+            />
+            <small style={{color: '#6b7280', fontSize: '0.85rem'}}>
+              此4位數字將作為您的登入密碼，每個房東的密碼必須唯一
+            </small>
+          </div>
+          
+          <button 
+            type="submit" 
+            className="btn btn-primary"
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? '註冊中...' : '註冊'}
+          </button>
+        </form>
+        
+        <div style={{textAlign: 'center', marginTop: '1rem'}}>
+          已有帳號？
+          <button 
+            onClick={() => setCurrentView('login')}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#3b82f6',
+              cursor: 'pointer',
+              textDecoration: 'underline',
+              marginLeft: '0.5rem'
+            }}
+          >
+            點此登入
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// 房東登入組件 (簡化為4位數數字)
+function LandlordLogin({ setCurrentView, setCurrentLandlord }) {
+  const [password, setPassword] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (!password) {
+      alert('請輸入4位數密碼');
+      return;
+    }
+
+    if (password.length !== 4 || !/^\d{4}$/.test(password)) {
+      alert('密碼必須為4位數字');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const landlord = await loginLandlordByPassword(password);
+      setCurrentLandlord(landlord);
+      setCurrentView('landlordDashboard');
+    } catch (error) {
+      console.error('登入失敗:', error);
+      alert('登入失敗，密碼錯誤或帳號不存在');
+      setPassword('');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="container">
+      <div className="nav-header">
+        <button className="nav-back" onClick={() => setCurrentView('home')}>
+          ←
+        </button>
+        <h1 className="nav-title">房東登入</h1>
+        <div></div>
+      </div>
+      
+      <div className="card">
+        <form onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label className="form-label">4位數登入密碼</label>
+            <input
+              type="password"
+              className="form-input"
+              value={password}
+              onChange={(e) => {
+                const value = e.target.value.replace(/\D/g, ''); // 只允許數字
+                if (value.length <= 4) {
+                  setPassword(value);
+                }
+              }}
+              placeholder="請輸入4位數字密碼"
+              maxLength="4"
+            />
+            <small style={{color: '#6b7280', fontSize: '0.85rem'}}>
+              請輸入您註冊時設定的4位數字密碼
+            </small>
+          </div>
+          
+          <button 
+            type="submit" 
+            className="btn btn-primary"
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? '登入中...' : '登入'}
+          </button>
+        </form>
+        
+        <div style={{textAlign: 'center', marginTop: '1rem'}}>
+          還沒有帳號？
+          <button 
+            onClick={() => setCurrentView('register')}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#3b82f6',
+              cursor: 'pointer',
+              textDecoration: 'underline',
+              marginLeft: '0.5rem'
+            }}
+          >
+            點此註冊
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// 房東管理介面 (保留原有UI，只在頂部添加專屬URL)
+function LandlordDashboard({ landlord, guests, setCurrentView, landlordView, setLandlordView, setSelectedGuest, refreshGuests, logout }) {
+  const handleGuestClick = (guest) => {
+    setSelectedGuest(guest);
+    setCurrentView('guestDetail');
+  };
+
+  // 生成專屬URL
+  const getGuestFormUrl = () => {
+    const baseUrl = window.location.origin + window.location.pathname;
+    return `${baseUrl}?landlord=${landlord.id}`;
+  };
+
+  const copyUrlToClipboard = () => {
+    const url = getGuestFormUrl();
+    navigator.clipboard.writeText(url).then(() => {
+      alert('URL已複製到剪貼板！');
+    }).catch(() => {
+      alert(`請手動複製此URL：\n${url}`);
+    });
+  };
+
+  return (
+    <div className="container">
+      <div className="nav-header">
+        <button className="nav-back" onClick={logout}>
+          ←
+        </button>
+        <h1 className="nav-title">{landlord.businessName}</h1>
+        <button 
+          className="nav-back" 
+          onClick={refreshGuests}
+          style={{backgroundColor: '#10b981', color: 'white'}}
+          title="重新載入資料"
+        >
+          ↻
+        </button>
+      </div>
+
+      {/* 專屬URL區域 - 新增但保持簡潔 */}
+      <div className="card" style={{marginBottom: '1rem', padding: '1rem'}}>
+        <h3 style={{marginBottom: '0.5rem', color: '#1e293b', fontSize: '1rem'}}>旅客登記專屬連結</h3>
+        <p style={{fontSize: '0.85rem', color: '#6b7280', marginBottom: '0.75rem'}}>
+          分享此連結給旅客，他們可以直接填寫入住表單
+        </p>
+        <div style={{display: 'flex', gap: '0.5rem'}}>
+          <input
+            type="text"
+            value={getGuestFormUrl()}
+            readOnly
+            style={{
+              flex: 1,
+              padding: '0.5rem',
+              border: '1px solid #e2e8f0',
+              borderRadius: '8px',
+              background: '#f8fafc',
+              fontSize: '0.8rem'
+            }}
+          />
+          <button 
+            onClick={copyUrlToClipboard}
+            className="btn btn-primary"
+            style={{width: 'auto', margin: 0, padding: '0.5rem 0.75rem', fontSize: '0.85rem'}}
+          >
+            複製
+          </button>
+        </div>
+      </div>
+      
+      {/* 保留原有的視圖切換和內容 */}
+      <div className="view-toggle">
+        <button 
+          className={landlordView === 'list' ? 'active' : ''}
+          onClick={() => setLandlordView('list')}
+        >
+          列表檢視
+        </button>
+        <button 
+          className={landlordView === 'calendar' ? 'active' : ''}
+          onClick={() => setLandlordView('calendar')}
+        >
+          日曆檢視
+        </button>
+      </div>
+
+      {landlordView === 'list' ? (
+        <GuestList guests={guests} onGuestClick={handleGuestClick} />
+      ) : (
+        <GuestCalendar guests={guests} onGuestClick={handleGuestClick} />
+      )}
+    </div>
+  );
+}
+
+// 旅客表單組件 - 修復「允許一退一住」機制
+function GuestForm({ setCurrentView, addGuest, guests, landlordId }) {
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
@@ -201,23 +565,80 @@ function GuestForm({ setCurrentView, addGuest, guests }) {
     checkOutDate: ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [landlordInfo, setLandlordInfo] = useState(null);
+  const [landlordGuests, setLandlordGuests] = useState([]); // 新增：專門存儲該房東的房客
 
-  // 檢查時間段是否與現有預訂重疊（允許一退一住）
+  // 載入房東資訊
+  useEffect(() => {
+    if (landlordId) {
+      const loadLandlordInfo = async () => {
+        try {
+          const landlords = await getLandlords();
+          const landlord = landlords.find(l => l.id === landlordId);
+          setLandlordInfo(landlord);
+        } catch (error) {
+          console.error('載入房東資訊失敗:', error);
+        }
+      };
+      loadLandlordInfo();
+    }
+  }, [landlordId]);
+
+  // 🎯 新增：載入該房東的房客資料
+  useEffect(() => {
+    const loadLandlordGuests = async () => {
+      try {
+        const targetLandlordId = landlordId || 'default'; // 如果沒有指定房東ID，使用預設值
+        if (targetLandlordId) {
+          console.log('🔍 正在載入房東房客資料，房東ID:', targetLandlordId);
+          const guestData = await getGuestsByLandlord(targetLandlordId);
+          console.log('🔍 載入的房客資料:', guestData);
+          setLandlordGuests(guestData);
+        }
+      } catch (error) {
+        console.error('載入房東房客資料失敗:', error);
+        // 如果載入失敗，使用傳入的 guests 作為備用
+        setLandlordGuests(guests || []);
+      }
+    };
+
+    loadLandlordGuests();
+  }, [landlordId, guests]);
+
+  // 🎯 修復的「允許一退一住」機制 - 使用 landlordGuests 而不是 guests
   const checkTimeOverlap = (newCheckIn, newCheckOut) => {
-    if (!guests || guests.length === 0) return [];
+    const guestsToCheck = landlordGuests.length > 0 ? landlordGuests : guests;
+    console.log('🔍 檢查重疊時使用的房客陣列:', guestsToCheck);
+    
+    if (!guestsToCheck || guestsToCheck.length === 0) return [];
     
     const newCheckInDate = new Date(newCheckIn + 'T00:00:00');
     const newCheckOutDate = new Date(newCheckOut + 'T00:00:00');
 
-    // 檢查是否與現有房客的時間重疊
-    const overlappingGuests = guests.filter(guest => {
+    const overlappingGuests = guestsToCheck.filter(guest => {
       const existingCheckIn = new Date(guest.checkInDate + 'T00:00:00');
       const existingCheckOut = new Date(guest.checkOutDate + 'T00:00:00');
       
-      // 修改重疊邏輯：允許一退一住
-      // 新預訂入住日期 < 現有預訂退房日期 且 新預訂退房日期 > 現有預訂入住日期
-      // 這樣就允許了 8/17 退房，8/17 入住的情況
-      return (newCheckInDate < existingCheckOut && newCheckOutDate > existingCheckIn);
+      console.log(`🔍 檢查房客 ${guest.name}: ${guest.checkInDate} ~ ${guest.checkOutDate}`);
+      
+      // 🎯 正確的「允許一退一住」邏輯：
+      // 檢查一退一住的情況
+      const isNewStartSameAsExistingEnd = newCheckInDate.getTime() === existingCheckOut.getTime();
+      const isNewEndSameAsExistingStart = newCheckOutDate.getTime() === existingCheckIn.getTime();
+      
+      console.log(`🔍 一退一住檢查: 新入住=${newCheckIn} vs 現有退房=${guest.checkOutDate}, 相等=${isNewStartSameAsExistingEnd}`);
+      console.log(`🔍 一退一住檢查: 新退房=${newCheckOut} vs 現有入住=${guest.checkInDate}, 相等=${isNewEndSameAsExistingStart}`);
+      
+      // 如果是一退一住的情況，則允許（不算重疊）
+      if (isNewStartSameAsExistingEnd || isNewEndSameAsExistingStart) {
+        console.log(`✅ ${guest.name} 是一退一住，允許`);
+        return false;
+      }
+      
+      // 其他情況按正常重疊邏輯判斷
+      const hasOverlap = (newCheckInDate < existingCheckOut && newCheckOutDate > existingCheckIn);
+      console.log(`🔍 ${guest.name} 重疊檢查結果: ${hasOverlap}`);
+      return hasOverlap;
     });
 
     return overlappingGuests;
@@ -226,54 +647,57 @@ function GuestForm({ setCurrentView, addGuest, guests }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // 基本驗證
+    console.log('🔍 調試信息：');
+    console.log('guests 陣列：', guests);
+    console.log('新的入住日期：', formData.checkInDate);
+    console.log('新的退房日期：', formData.checkOutDate);
+    
     if (!formData.name || !formData.checkInDate || !formData.checkOutDate) {
-      alert('請填寫所有必填欄位（姓名、入住日期、退房日期）');
+      alert('請填寫所有必填欄位');
       return;
     }
 
-    // 檢查日期邏輯
-    const checkInDate = new Date(formData.checkInDate);
-    const checkOutDate = new Date(formData.checkOutDate);
-    
-    if (checkOutDate <= checkInDate) {
+    if (new Date(formData.checkInDate) >= new Date(formData.checkOutDate)) {
       alert('退房日期必須晚於入住日期');
       return;
     }
-    
-    // 檢查是否為同一天（不允許0晚住宿）
-    if (formData.checkInDate === formData.checkOutDate) {
-      alert('退房日期不可和入住日期選同一天，至少需要住宿1晚');
-      return;
-    }
 
-    // 檢查時間段是否重疊
-    const overlappingGuests = checkTimeOverlap(formData.checkInDate, formData.checkOutDate);
+    const overlapping = checkTimeOverlap(formData.checkInDate, formData.checkOutDate);
+    console.log('重疊檢查結果：', overlapping);
     
-    if (overlappingGuests.length > 0) {
-      const conflictInfo = overlappingGuests.map(guest => 
-        `${guest.name} (${guest.checkInDate} ~ ${guest.checkOutDate})`
-      ).join('\n');
-      
-      alert(`預訂失敗！\n\n所選時間段與以下現有預訂重疊：\n${conflictInfo}\n\n請選擇其他日期。`);
+    if (overlapping.length > 0) {
+      console.log('❌ 發現重疊，應該阻止預訂');
+      const names = overlapping.map(g => g.name).join('、');
+      alert(`時間衝突！與以下房客的住宿時間重疊：${names}`);
       return;
+    } else {
+      console.log('✅ 沒有重疊，允許預訂');
     }
 
     setIsSubmitting(true);
     try {
-      // 添加新房客到 Firestore
       await addGuest(formData);
+      alert('登記成功！');
+      setFormData({
+        name: '',
+        phone: '',
+        checkInDate: '',
+        checkOutDate: ''
+      });
       
-      alert('登記成功！資料已保存至雲端');
-      setCurrentView('home');
+      // 如果是通過專屬URL訪問，返回首頁
+      if (landlordId) {
+        setCurrentView('home');
+      }
     } catch (error) {
-      console.error('Error adding guest:', error);
-      alert('登記失敗，請檢查網路連線並重試');
+      console.error('登記失敗:', error);
+      alert('登記失敗，請稍後再試');
+    } finally {
+      setIsSubmitting(false);
     }
-    setIsSubmitting(false);
   };
 
-  // 獲取可用日期建議（找出空檔，至少1晚住宿）
+  // 獲取可用日期建議（找出空檔）
   const getAvailableDateSuggestions = () => {
     if (!formData.checkInDate || !guests) return [];
     
@@ -309,7 +733,9 @@ function GuestForm({ setCurrentView, addGuest, guests }) {
         <button className="nav-back" onClick={() => setCurrentView('home')}>
           ←
         </button>
-        <h1 className="nav-title">旅客登記</h1>
+        <h1 className="nav-title">
+          {landlordInfo ? `${landlordInfo.businessName} - 入住登記` : '入住登記'}
+        </h1>
         <div></div>
       </div>
       
@@ -390,19 +816,17 @@ function GuestForm({ setCurrentView, addGuest, guests }) {
               value={formData.name}
               onChange={(e) => setFormData({...formData, name: e.target.value})}
               placeholder="請輸入姓名"
-              disabled={isSubmitting}
             />
           </div>
           
           <div className="form-group">
-            <label className="form-label">電話</label>
+            <label className="form-label">聯絡電話</label>
             <input
               type="tel"
               className="form-input"
               value={formData.phone}
               onChange={(e) => setFormData({...formData, phone: e.target.value})}
-              placeholder="請輸入電話號碼（選填）"
-              disabled={isSubmitting}
+              placeholder="請輸入聯絡電話"
             />
           </div>
           
@@ -412,9 +836,7 @@ function GuestForm({ setCurrentView, addGuest, guests }) {
               type="date"
               className="form-input"
               value={formData.checkInDate}
-              onChange={(e) => setFormData({...formData, checkInDate: e.target.value, checkOutDate: ''})}
-              min={new Date().toISOString().split('T')[0]}
-              disabled={isSubmitting}
+              onChange={(e) => setFormData({...formData, checkInDate: e.target.value})}
             />
           </div>
           
@@ -425,133 +847,40 @@ function GuestForm({ setCurrentView, addGuest, guests }) {
               className="form-input"
               value={formData.checkOutDate}
               onChange={(e) => setFormData({...formData, checkOutDate: e.target.value})}
-              min={formData.checkInDate ? 
-                (() => {
-                  const nextDay = new Date(formData.checkInDate);
-                  nextDay.setDate(nextDay.getDate() + 1);
-                  return nextDay.toISOString().split('T')[0];
-                })() :
-                new Date().toISOString().split('T')[0]
-              }
-              disabled={isSubmitting}
             />
           </div>
           
           <button 
             type="submit" 
-            className="btn btn-success"
+            className="btn btn-primary"
             disabled={isSubmitting || (formData.checkInDate && formData.checkOutDate && checkTimeOverlap(formData.checkInDate, formData.checkOutDate).length > 0)}
           >
-            {isSubmitting ? '正在保存至雲端...' : '確認登記'}
+            {isSubmitting ? '正在登記...' : '確認登記'}
           </button>
         </form>
+
+        {/* 添加一退一住機制的說明 */}
+        <div style={{
+          marginTop: '1rem',
+          padding: '0.75rem',
+          background: '#dbeafe',
+          border: '1px solid #60a5fa',
+          borderRadius: '8px',
+          fontSize: '0.85rem',
+          color: '#1d4ed8'
+        }}>
+          💡 提示：系統支援「一退一住」機制，同一天退房入住無衝突
+        </div>
       </div>
     </div>
   );
 }
 
-// 房東登入組件
-function LandlordLogin({ setCurrentView }) {
-  const [password, setPassword] = useState('');
-  const LANDLORD_PASSWORD = '0205'; // 房東密碼
-
-  const handleLogin = (e) => {
-    e.preventDefault();
-    if (password === LANDLORD_PASSWORD) {
-      setCurrentView('guestList');
-    } else {
-      alert('密碼錯誤');
-      setPassword('');
-    }
-  };
-
-  return (
-    <div className="container">
-      <div className="nav-header">
-        <button className="nav-back" onClick={() => setCurrentView('home')}>
-          ←
-        </button>
-        <h1 className="nav-title">房東登入</h1>
-        <div></div>
-      </div>
-      
-      <div className="card">
-        <form onSubmit={handleLogin}>
-          <div className="form-group">
-            <label className="form-label">請輸入4位密碼</label>
-            <input
-              type="password"
-              className="form-input"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="輸入密碼"
-              maxLength="4"
-            />
-          </div>
-          <button type="submit" className="btn btn-primary">
-            登入
-          </button>
-        </form>
-      </div>
-    </div>
-  );
-}
-
-// 房東管理介面
-function LandlordDashboard({ guests, setCurrentView, landlordView, setLandlordView, setSelectedGuest, refreshGuests }) {
-  const handleGuestClick = (guest) => {
-    setSelectedGuest(guest);
-    setCurrentView('guestDetail');
-  };
-
-  return (
-    <div className="container">
-      <div className="nav-header">
-        <button className="nav-back" onClick={() => setCurrentView('home')}>
-          ←
-        </button>
-        <h1 className="nav-title">房東管理</h1>
-        <button 
-          className="nav-back" 
-          onClick={refreshGuests}
-          style={{backgroundColor: '#10b981', color: 'white'}}
-          title="重新載入資料"
-        >
-          ↻
-        </button>
-      </div>
-      
-      <div className="view-toggle">
-        <button 
-          className={landlordView === 'list' ? 'active' : ''}
-          onClick={() => setLandlordView('list')}
-        >
-          列表檢視
-        </button>
-        <button 
-          className={landlordView === 'calendar' ? 'active' : ''}
-          onClick={() => setLandlordView('calendar')}
-        >
-          日曆檢視
-        </button>
-      </div>
-
-      {landlordView === 'list' ? (
-        <GuestList guests={guests} onGuestClick={handleGuestClick} />
-      ) : (
-        <CalendarView guests={guests} onGuestClick={handleGuestClick} />
-      )}
-    </div>
-  );
-}
-
-// 房客列表組件
+// 房客列表組件 (完全保留原有UI)
 function GuestList({ guests, onGuestClick }) {
-  // 獲取當前日期
   const today = new Date();
   const todayString = today.toISOString().split('T')[0];
 
-  // 分類和排序房客
   const categorizeAndSortGuests = (guests) => {
     const currentGuests = [];
     const upcomingGuests = [];
@@ -563,21 +892,18 @@ function GuestList({ guests, onGuestClick }) {
       const today = new Date(todayString);
 
       if (checkOutDate < today) {
-        // 已完成 - 已過退房日期
         completedGuests.push({
           ...guest,
           status: 'completed',
           statusText: '已完成'
         });
       } else if (checkInDate <= today && checkOutDate >= today) {
-        // 目前入住中
         currentGuests.push({
           ...guest,
           status: 'current',
           statusText: '入住中'
         });
       } else {
-        // 即將入住
         upcomingGuests.push({
           ...guest,
           status: 'upcoming',
@@ -586,22 +912,14 @@ function GuestList({ guests, onGuestClick }) {
       }
     });
 
-    // 排序邏輯
-    // 1. 目前入住中 - 按入住日期排序（最近入住的在前）
     currentGuests.sort((a, b) => new Date(b.checkInDate) - new Date(a.checkInDate));
-    
-    // 2. 即將入住 - 按入住日期排序（最近的在前）
     upcomingGuests.sort((a, b) => new Date(a.checkInDate) - new Date(b.checkInDate));
-    
-    // 3. 已完成 - 按退房日期排序（最近完成的在前）
     completedGuests.sort((a, b) => new Date(b.checkOutDate) - new Date(a.checkOutDate));
 
     return [...currentGuests, ...upcomingGuests, ...completedGuests];
   };
 
   const sortedGuests = categorizeAndSortGuests(guests);
-
-  // 計算各類別數量
   const currentCount = sortedGuests.filter(g => g.status === 'current').length;
   const upcomingCount = sortedGuests.filter(g => g.status === 'upcoming').length;
   const completedCount = sortedGuests.filter(g => g.status === 'completed').length;
@@ -731,29 +1049,26 @@ function GuestList({ guests, onGuestClick }) {
   );
 }
 
-// 優化的日曆檢視組件
-function CalendarView({ guests, onGuestClick }) {
+// 日曆檢視組件 - 修復「允許一退一住」機制
+function GuestCalendar({ guests, onGuestClick }) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const currentMonth = currentDate.getMonth();
   const currentYear = currentDate.getFullYear();
   
-  // 月份導航
   const navigateMonth = (direction) => {
     const newDate = new Date(currentYear, currentMonth + direction, 1);
     setCurrentDate(newDate);
   };
 
-  // 生成日曆數據
   const generateCalendarData = () => {
     const firstDay = new Date(currentYear, currentMonth, 1);
     const lastDay = new Date(currentYear, currentMonth + 1, 0);
     const startDate = new Date(firstDay);
-    startDate.setDate(startDate.getDate() - firstDay.getDay()); // 從週日開始
+    startDate.setDate(startDate.getDate() - firstDay.getDay());
     
     const days = [];
     const current = new Date(startDate);
     
-    // 生成6週的日期
     for (let week = 0; week < 6; week++) {
       for (let day = 0; day < 7; day++) {
         days.push(new Date(current));
@@ -766,17 +1081,14 @@ function CalendarView({ guests, onGuestClick }) {
 
   const days = generateCalendarData();
 
-  // 為每個旅客分配顏色
   const getGuestColor = (guestId) => {
     const guestIndex = guests.findIndex(g => g.id === guestId);
     return `guest-color-${guestIndex % 8}`;
   };
 
-  // 優化的房客事件計算 - 姓名只在住宿開始時顯示一次
   const calculateGuestEvents = () => {
     const allEvents = [];
     
-    // 智慧分配層級 - 檢測時間重疊
     const guestLevels = {};
     const sortedGuests = [...guests].sort((a, b) => new Date(a.checkInDate) - new Date(b.checkInDate));
     
@@ -784,12 +1096,10 @@ function CalendarView({ guests, onGuestClick }) {
       const checkIn = new Date(guest.checkInDate + 'T00:00:00');
       const checkOut = new Date(guest.checkOutDate + 'T00:00:00');
       
-      // 找到合適的層級
       let level = 0;
       let levelFound = false;
       
       while (!levelFound) {
-        // 檢查這個層級是否與其他房客衝突
         const hasConflict = sortedGuests.some(otherGuest => {
           if (otherGuest.id === guest.id) return false;
           if (guestLevels[otherGuest.id] !== level * 28) return false;
@@ -797,12 +1107,19 @@ function CalendarView({ guests, onGuestClick }) {
           const otherCheckIn = new Date(otherGuest.checkInDate + 'T00:00:00');
           const otherCheckOut = new Date(otherGuest.checkOutDate + 'T00:00:00');
           
-          // 檢查時間是否重疊（允許一退一住）
+          // 🎯 修復日曆也使用同樣的「允許一退一住」邏輯
+          const isStartSameAsOtherEnd = checkIn.getTime() === otherCheckOut.getTime();
+          const isEndSameAsOtherStart = checkOut.getTime() === otherCheckIn.getTime();
+          
+          if (isStartSameAsOtherEnd || isEndSameAsOtherStart) {
+            return false;
+          }
+          
           return (checkIn < otherCheckOut && checkOut > otherCheckIn);
         });
         
         if (!hasConflict) {
-          guestLevels[guest.id] = level * 28; // 每層28px間距
+          guestLevels[guest.id] = level * 28;
           levelFound = true;
         } else {
           level++;
@@ -811,19 +1128,16 @@ function CalendarView({ guests, onGuestClick }) {
     });
     
     guests.forEach(guest => {
-      // 確保日期字符串正確解析
       const checkIn = new Date(guest.checkInDate + 'T00:00:00');
       const checkOut = new Date(guest.checkOutDate + 'T00:00:00');
       
-      // 為每一週單獨計算事件
       const weekGroups = {};
-      let hasShownName = false; // 追踪是否已經顯示過姓名
+      let hasShownName = false;
       
       days.forEach((day, dayIndex) => {
         const weekIndex = Math.floor(dayIndex / 7);
         const dayOfWeek = dayIndex % 7;
         
-        // 檢查這一天是否在住宿期間
         const dayStart = new Date(day.getFullYear(), day.getMonth(), day.getDate());
         const isInStay = dayStart >= checkIn && dayStart <= checkOut;
         
@@ -842,25 +1156,19 @@ function CalendarView({ guests, onGuestClick }) {
         }
       });
 
-      // 將週組轉換為事件，姓名只在整個住宿期間顯示一次
       const weekGroupKeys = Object.keys(weekGroups).map(Number).sort((a, b) => a - b);
       
       weekGroupKeys.forEach((weekIndex, groupIndex) => {
         const weekGroup = weekGroups[weekIndex];
         
-        // 只在第一個週組顯示姓名，或者當週組不連續時顯示姓名
         let shouldShowName = false;
         
         if (groupIndex === 0) {
-          // 第一個週組總是顯示姓名
           shouldShowName = true;
         } else {
-          // 檢查前一週是否連續
           const prevWeekIndex = weekGroupKeys[groupIndex - 1];
           const prevWeekGroup = weekGroups[prevWeekIndex];
           
-          // 如果前一週的結束不是週六(6)，或者這週的開始不是週日(0)，
-          // 或者週次不連續，則顯示姓名
           const isWeekContinuous = (prevWeekIndex === weekIndex - 1);
           const isPrevWeekEndingSaturday = (prevWeekGroup.endDay === 6);
           const isCurrentWeekStartingSunday = (weekGroup.startDay === 0);
@@ -928,7 +1236,6 @@ function CalendarView({ guests, onGuestClick }) {
               event.weekIndex === weekIndex
             );
             
-            // 判斷是否為週末
             const isWeekend = day.getDay() === 0 || day.getDay() === 6;
             
             return (
@@ -940,7 +1247,6 @@ function CalendarView({ guests, onGuestClick }) {
                     const checkIn = new Date(guest.checkInDate + 'T00:00:00');
                     const checkOut = new Date(guest.checkOutDate + 'T00:00:00');
                     const dayStart = new Date(day.getFullYear(), day.getMonth(), day.getDate());
-                    // 包含入住日和離開日
                     return dayStart >= checkIn && dayStart <= checkOut;
                   });
                   
@@ -961,7 +1267,6 @@ function CalendarView({ guests, onGuestClick }) {
                     const isEventStart = dayOfWeek === event.startDay;
                     const eventWidth = (event.endDay - event.startDay + 1) * 100;
                     
-                    // 只在事件開始的日期顯示長條
                     if (isEventStart) {
                       return (
                         <div
@@ -979,7 +1284,6 @@ function CalendarView({ guests, onGuestClick }) {
                           }}
                           title={`${event.guest.name} (${event.guest.checkInDate} - ${event.guest.checkOutDate})`}
                         >
-                          {/* 只在需要顯示姓名的地方顯示 */}
                           {event.showName ? event.guest.name : ''}
                         </div>
                       );
@@ -996,7 +1300,7 @@ function CalendarView({ guests, onGuestClick }) {
   );
 }
 
-// 房客詳細資料組件
+// 房客詳情組件 (保留原有UI)
 function GuestDetail({ guest, setCurrentView, landlordView, updateGuestPayment, updateGuest, deleteGuest, guests, setSelectedGuest }) {
   const [isUpdating, setIsUpdating] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -1006,12 +1310,8 @@ function GuestDetail({ guest, setCurrentView, landlordView, updateGuestPayment, 
     const newStatus = guest.paymentStatus === '已付款' ? '未付款' : '已付款';
     
     try {
-      // 更新付款狀態到 Firestore
       await updateGuestPayment(guest.id, newStatus);
-      
-      // 更新本地 guest 對象
-      guest.paymentStatus = newStatus;
-      
+      setSelectedGuest({...guest, paymentStatus: newStatus});
       alert(`付款狀態已更新為：${newStatus}`);
     } catch (error) {
       console.error('Error updating payment status:', error);
@@ -1035,7 +1335,7 @@ function GuestDetail({ guest, setCurrentView, landlordView, updateGuestPayment, 
     try {
       await deleteGuest(guest.id);
       alert('房客資料已成功刪除');
-      setCurrentView('guestList');
+      setCurrentView('landlordDashboard');
     } catch (error) {
       console.error('Error deleting guest:', error);
       alert('刪除失敗，請檢查網路連線並重試');
@@ -1046,7 +1346,7 @@ function GuestDetail({ guest, setCurrentView, landlordView, updateGuestPayment, 
   return (
     <div className="container">
       <div className="nav-header">
-        <button className="nav-back" onClick={() => setCurrentView('guestList')}>
+        <button className="nav-back" onClick={() => setCurrentView('landlordDashboard')}>
           ←
         </button>
         <h1 className="nav-title">房客詳細資料</h1>
@@ -1159,7 +1459,7 @@ function GuestDetail({ guest, setCurrentView, landlordView, updateGuestPayment, 
   );
 }
 
-// 編輯房客表單組件
+// 編輯房客表單組件 - 修復「允許一退一住」機制
 function EditGuestForm({ guest, setCurrentView, updateGuest, guests, setSelectedGuest }) {
   const [formData, setFormData] = useState({
     name: guest.name || '',
@@ -1169,21 +1469,30 @@ function EditGuestForm({ guest, setCurrentView, updateGuest, guests, setSelected
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // 檢查時間段是否與其他現有預訂重疊（排除當前房客）
+  // 🎯 修復的「允許一退一住」機制
   const checkTimeOverlap = (newCheckIn, newCheckOut) => {
     if (!guests || guests.length === 0) return [];
     
     const newCheckInDate = new Date(newCheckIn + 'T00:00:00');
     const newCheckOutDate = new Date(newCheckOut + 'T00:00:00');
 
-    // 檢查是否與其他房客的時間重疊（排除當前編輯的房客）
     const overlappingGuests = guests.filter(otherGuest => {
-      if (otherGuest.id === guest.id) return false; // 排除當前房客
+      if (otherGuest.id === guest.id) return false;
       
       const existingCheckIn = new Date(otherGuest.checkInDate + 'T00:00:00');
       const existingCheckOut = new Date(otherGuest.checkOutDate + 'T00:00:00');
       
-      // 修改重疊邏輯：允許一退一住
+      // 🎯 正確的「允許一退一住」邏輯：
+      // 檢查一退一住的情況
+      const isNewStartSameAsExistingEnd = newCheckInDate.getTime() === existingCheckOut.getTime();
+      const isNewEndSameAsExistingStart = newCheckOutDate.getTime() === existingCheckIn.getTime();
+      
+      // 如果是一退一住的情況，則允許（不算重疊）
+      if (isNewStartSameAsExistingEnd || isNewEndSameAsExistingStart) {
+        return false;
+      }
+      
+      // 其他情況按正常重疊邏輯判斷
       return (newCheckInDate < existingCheckOut && newCheckOutDate > existingCheckIn);
     });
 
@@ -1193,13 +1502,11 @@ function EditGuestForm({ guest, setCurrentView, updateGuest, guests, setSelected
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // 基本驗證
     if (!formData.name || !formData.checkInDate || !formData.checkOutDate) {
       alert('請填寫所有必填欄位（姓名、入住日期、退房日期）');
       return;
     }
 
-    // 檢查日期邏輯
     const checkInDate = new Date(formData.checkInDate);
     const checkOutDate = new Date(formData.checkOutDate);
     
@@ -1208,13 +1515,11 @@ function EditGuestForm({ guest, setCurrentView, updateGuest, guests, setSelected
       return;
     }
     
-    // 檢查是否為同一天（不允許0晚住宿）
     if (formData.checkInDate === formData.checkOutDate) {
       alert('退房日期不可和入住日期選同一天，至少需要住宿1晚');
       return;
     }
 
-    // 檢查時間段是否與其他預訂重疊
     const overlappingGuests = checkTimeOverlap(formData.checkInDate, formData.checkOutDate);
     
     if (overlappingGuests.length > 0) {
@@ -1228,12 +1533,8 @@ function EditGuestForm({ guest, setCurrentView, updateGuest, guests, setSelected
 
     setIsSubmitting(true);
     try {
-      // 更新房客資料到 Firestore
       await updateGuest(guest.id, formData);
-      
-      // 更新本地選中的房客對象
       setSelectedGuest({...guest, ...formData});
-      
       alert('房客資料修改成功！');
       setCurrentView('guestDetail');
     } catch (error) {
@@ -1453,7 +1754,7 @@ function EditGuestForm({ guest, setCurrentView, updateGuest, guests, setSelected
           fontSize: '0.85rem',
           color: '#1d4ed8'
         }}>
-          💡 提示：修改時會自動檢查與其他預訂的時間衝突
+          💡 提示：修改時會自動檢查與其他預訂的時間衝突，支援「一退一住」機制
         </div>
       </div>
     </div>
