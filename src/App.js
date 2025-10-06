@@ -577,6 +577,7 @@ function GuestForm({ setCurrentView, addGuest, guests, landlordId }) {
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
+    carNumber: '',
     checkInDate: '',
     checkOutDate: ''
   });
@@ -843,6 +844,17 @@ function GuestForm({ setCurrentView, addGuest, guests, landlordId }) {
               value={formData.phone}
               onChange={(e) => setFormData({...formData, phone: e.target.value})}
               placeholder="請輸入聯絡電話"
+            />
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">車號</label>
+            <input
+              type="text"
+              className="form-input"
+              value={formData.carNumber}
+              onChange={(e) => setFormData({...formData, carNumber: e.target.value.toUpperCase()})}
+              placeholder="請輸入車號"
             />
           </div>
           
@@ -1396,6 +1408,13 @@ function GuestDetail({ guest, setCurrentView, landlordView, updateGuestPayment, 
             {guest.phone || '未提供'}
           </div>
         </div>
+
+        <div className="form-group">
+          <label className="form-label">車號</label>
+          <div style={{padding: '0.875rem', background: '#f9fafb', borderRadius: '8px'}}>
+            {guest.carNumber || '未提供'}
+          </div>
+        </div>
         
         <div className="form-group">
           <label className="form-label">入住日期</label>
@@ -1489,6 +1508,7 @@ function EditGuestForm({ guest, setCurrentView, updateGuest, guests, setSelected
   const [formData, setFormData] = useState({
     name: guest.name || '',
     phone: guest.phone || '',
+    carNumber: guest.carNumber || '',
     checkInDate: guest.checkInDate || '',
     checkOutDate: guest.checkOutDate || ''
   });
@@ -1702,6 +1722,18 @@ function EditGuestForm({ guest, setCurrentView, updateGuest, guests, setSelected
               value={formData.phone}
               onChange={(e) => setFormData({...formData, phone: e.target.value})}
               placeholder="請輸入電話號碼（選填）"
+              disabled={isSubmitting}
+            />
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">車號</label>
+            <input
+              type="text"
+              className="form-input"
+              value={formData.carNumber}
+              onChange={(e) => setFormData({...formData, carNumber: e.target.value})}
+              placeholder="請輸入車號（選填）"
               disabled={isSubmitting}
             />
           </div>
